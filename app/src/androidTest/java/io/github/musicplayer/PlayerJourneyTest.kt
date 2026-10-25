@@ -52,17 +52,21 @@ class PlayerJourneyTest {
         screenshot("01-discover")
         compose.onNodeWithTag("nav_search").performClick()
         compose.onNodeWithTag("search_input").performTextInput("night")
+        compose.onNodeWithTag("search_input").performImeAction()
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("track_night-drive"))
         compose.onNodeWithTag("track_night-drive").assertExists()
         compose.onNodeWithTag("track_first-light").assertDoesNotExist()
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         screenshot("02-search")
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("search_input"))
         compose.onNodeWithTag("search_input").performTextReplacement("zzzz no match")
+        compose.onNodeWithTag("search_input").performImeAction()
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasText("Nothing on this frequency"))
         compose.onNodeWithText("Nothing on this frequency").assertExists()
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.onNodeWithTag("nav_library").performClick()
         compose.onNodeWithTag("import_audio").assertIsDisplayed()
         compose.onNodeWithTag("add_stream").assertIsDisplayed()
         compose.onNodeWithTag("filter_offline").performClick()
+        compose.onNodeWithTag("library_screen").performScrollToNode(hasTestTag("track_first-light"))
         compose.onNodeWithTag("track_first-light").assertExists()
         compose.onNodeWithTag("track_night-drive").assertDoesNotExist()
         screenshot("03-library")
@@ -99,6 +103,7 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("mini_player").assertExists()
         compose.onNodeWithTag("nav_library").performClick()
         compose.onNodeWithTag("filter_favourites").performClick()
+        compose.onNodeWithTag("library_screen").performScrollToNode(hasTestTag("track_first-light"))
         compose.onNodeWithTag("track_first-light").assertExists()
     }
 
@@ -110,8 +115,12 @@ class PlayerJourneyTest {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         device.pressHome()
         compose.waitUntil(8_000) { model.player.state.value.positionMs > before + 700 && model.player.state.value.isPlaying }
-        context.startActivity(context.packageManager.getLaunchIntentForPackage(context.packageName)!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         compose.waitUntil(8_000) { model.player.state.value.isPlaying }
+        if (compose.onAllNodesWithTag("now_playing").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithTag("expand_player").performClick()
+        }
         compose.onNodeWithTag("play_pause").performScrollTo().performClick()
         compose.waitUntil(5_000) { !model.player.state.value.isPlaying }
         assertNull(model.player.state.value.error)
@@ -124,9 +133,9 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("confirm_add_stream").assertIsNotEnabled()
         compose.onNodeWithTag("stream_title").performTextInput("My recording")
         compose.onNodeWithTag("stream_url").performTextInput("http://example.com/audio.wav")
-        compose.onNodeWithTag("stream_permission").performClick()
+        compose.onNodeWithTag("stream_permission").performScrollTo().performClick()
         compose.onNodeWithTag("confirm_add_stream").assertIsNotEnabled()
-        compose.onNodeWithTag("stream_url").performTextReplacement("https://example.com/audio.wav")
+        compose.onNodeWithTag("stream_url").performScrollTo().performTextReplacement("https://example.com/audio.wav")
         compose.onNodeWithTag("confirm_add_stream").assertIsEnabled().performClick()
         compose.waitUntil(5_000) { model.repository.tracks.value.any { it.title == "My recording" } }
         val imported = model.repository.tracks.value.first { it.title == "My recording" }

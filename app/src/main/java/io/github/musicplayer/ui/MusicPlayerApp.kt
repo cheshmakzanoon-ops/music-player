@@ -20,9 +20,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +42,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -48,6 +53,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -154,6 +160,7 @@ private fun AppHeader(onSettings: () -> Unit) {
 
 @Composable
 private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings: () -> Unit, onExpand: () -> Unit) {
+    val studioTracks = remember(state.tracks) { state.tracks.filter { it.source == "Original studio sample" && it.license == "CC0-1.0" } }
     LazyColumn(Modifier.fillMaxSize().testTag("home_screen"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { AppHeader(onSettings) }
         item {
@@ -164,10 +171,10 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
             }
         }
         item {
-            val featured = state.tracks.firstOrNull()
+            val featured = studioTracks.firstOrNull()
             if (featured != null) {
                 HeroCard(featured, !state.reduceMotion) {
-                    actions.onPlay(featured, state.tracks)
+                    actions.onPlay(featured, studioTracks)
                     onExpand()
                 }
             } else if (state.catalogLoading) {
@@ -182,13 +189,13 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
                     Text("The studio sessions", style = MaterialTheme.typography.titleLarge)
                     Text("Original sounds. Yours to explore.", style = MaterialTheme.typography.bodySmall, color = Muted)
                 }
-                Text(state.tracks.size.toString().padStart(2, '0'), fontFamily = FontFamily.Monospace, color = Lime, fontSize = 14.sp)
+                Text(studioTracks.size.toString().padStart(2, '0'), fontFamily = FontFamily.Monospace, color = Lime, fontSize = 14.sp)
             }
         }
         item {
             LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(state.tracks.take(6), key = { it.id }) { track ->
-                    Column(Modifier.width(146.dp).clip(RoundedCornerShape(18.dp)).clickable { actions.onPlay(track, state.tracks) }.testTag("album_${track.id}")) {
+                items(studioTracks.take(6), key = { it.id }) { track ->
+                    Column(Modifier.width(146.dp).clip(RoundedCornerShape(18.dp)).clickable { actions.onPlay(track, studioTracks) }.testTag("album_${track.id}")) {
                         Box {
                             AlbumArt(track, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(18.dp)))
                             Box(Modifier.padding(10.dp).align(Alignment.BottomEnd).size(32.dp).background(Ink.copy(alpha = .8f), CircleShape), contentAlignment = Alignment.Center) {
@@ -208,7 +215,7 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
         item {
             Column(Modifier.padding(24.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.OpenInNew, null, tint = Lilac, modifier = Modifier.size(22.dp))
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, tint = Lilac, modifier = Modifier.size(22.dp))
                     Text("Your Spotify, a tap away", style = MaterialTheme.typography.titleMedium)
                 }
                 Text("Open the official app for its catalogue and your account.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
@@ -260,19 +267,23 @@ private fun HeroCard(track: Track, animate: Boolean, onPlay: () -> Unit) {
 
 @Composable
 private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: String, onQuery: (String) -> Unit, onSettings: () -> Unit) {
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val results = remember(state.tracks, query) { state.tracks.filter { "${it.title} ${it.artist} ${it.album} ${it.source}".contains(query.trim(), ignoreCase = true) } }
     LazyColumn(Modifier.fillMaxSize().testTag("search_screen"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { AppHeader(onSettings) }
         item {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
                 Eyebrow("FOLLOW YOUR CURIOSITY")
-                Text("On your\nwavelength.", style = MaterialTheme.typography.displayLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
+                Text(if (query.isBlank()) "On your\nwavelength." else "Find your next.", style = if (query.isBlank()) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
                 OutlinedTextField(
                     value = query, onValueChange = onQuery,
                     placeholder = { Text("Tracks, artists, a feeling…", fontSize = 14.sp) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Lime) },
                     trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } },
                     singleLine = true, shape = RoundedCornerShape(18.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); focus.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Panel, unfocusedContainerColor = Panel, unfocusedBorderColor = Hairline),
                     modifier = Modifier.fillMaxWidth().padding(top = 24.dp).testTag("search_input"),
                 )
@@ -293,7 +304,7 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
             item {
                 TextButton(onClick = { actions.onOpenSpotify(query) }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp).testTag("spotify_search")) {
                     Text("Search “$query” in Spotify", modifier = Modifier.weight(1f), maxLines = 2)
-                    Icon(Icons.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -432,7 +443,9 @@ private fun MiniPlayer(state: PlayerUiState, actions: PlayerActions, onExpand: (
 
 @Composable
 private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: () -> Unit) {
-    val track = state.playback.track ?: return
+    val playingTrack = state.playback.track ?: return
+    val track = state.tracks.firstOrNull { it.id == playingTrack.id } ?: playingTrack
+    val localSource = track.streamUri.startsWith("content:")
     var showQueue by rememberSaveable { mutableStateOf(false) }
     val accent = Color(track.accent)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -448,7 +461,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                             Eyebrow(if (showQueue) "UP NEXT" else "NOW PLAYING")
                             Text(if (showQueue) "${state.playback.queue.size} tracks in your queue" else track.album.ifBlank { track.source }, fontSize = 11.sp, color = Milk, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                         }
-                        RoundIcon(Icons.Rounded.QueueMusic, "${if (showQueue) "Hide" else "Show"} queue", { showQueue = !showQueue }, Modifier.testTag("toggle_queue"), tint = if (showQueue) Lime else Milk)
+                        RoundIcon(Icons.AutoMirrored.Rounded.QueueMusic, "${if (showQueue) "Hide" else "Show"} queue", { showQueue = !showQueue }, Modifier.testTag("toggle_queue"), tint = if (showQueue) Lime else Milk)
                     }
                     if (showQueue) {
                         LazyColumn(Modifier.weight(1f).testTag("queue_list"), contentPadding = PaddingValues(vertical = 16.dp)) {
@@ -461,7 +474,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                                 val orbit = motionPhase(state.playback.isPlaying && !state.reduceMotion, 45000)
                                 AlbumArt(track, Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)), phase = orbit * 360f)
                                 Box(Modifier.align(Alignment.TopStart).padding(18.dp).clip(RoundedCornerShape(20.dp)).background(Ink.copy(.65f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                    Text(if (track.isOffline) "OFFLINE READY" else "STEREO / ONLINE", fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp, color = Milk)
+                                    Text(when { track.isOffline -> "OFFLINE READY"; localSource -> "LOCAL SOURCE"; else -> "STEREO / ONLINE" }, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp, color = Milk)
                                 }
                             }
                             Row(Modifier.fillMaxWidth().padding(top = 28.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -498,8 +511,8 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(if (track.isOffline) Icons.Rounded.OfflinePin else Icons.Rounded.GraphicEq, null, tint = Lime, modifier = Modifier.size(22.dp))
                                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                                    Text(if (track.isOffline) "Take it anywhere" else "Keep the feeling", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                    Text(if (track.isOffline) "Available without a connection" else if (track.downloadable) "Save this track for offline listening" else "Stream from your audio source", color = Muted, fontSize = 11.sp)
+                                    Text(when { track.isOffline -> "Take it anywhere"; localSource -> "Your own sound"; else -> "Keep the feeling" }, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                    Text(when { track.isOffline -> "Available without a connection"; localSource -> "Played through your file provider"; track.downloadable -> "Save this track for offline listening"; else -> "Stream from your audio source" }, color = Muted, fontSize = 11.sp)
                                 }
                                 if (track.downloadable) DownloadButton(track, state.downloads[track.id], actions.onDownload)
                             }

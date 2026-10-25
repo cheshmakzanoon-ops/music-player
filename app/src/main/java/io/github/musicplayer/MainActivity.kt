@@ -31,16 +31,14 @@ class MainActivity : ComponentActivity() {
             val reduceMotion by model.reduceMotion.collectAsStateWithLifecycle()
             val message by model.message.collectAsStateWithLifecycle()
             val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-                val readable = uris.filter { uri ->
+                uris.forEach { uri ->
                     try {
                         contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        true
                     } catch (_: SecurityException) {
-                        model.showMessage("That provider could not grant lasting access. Choose an audio file saved on your device.")
-                        false
+                        // The picker still grants temporary access. Imports are copied to private storage.
                     }
                 }
-                model.importFiles(readable)
+                model.importFiles(uris)
             }
 
             MusicPlayerApp(

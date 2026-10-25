@@ -47,6 +47,7 @@ class MusicRepository(
     private val prefs = app.getSharedPreferences("music-library", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lock = Mutex()
+    private val importLock = Mutex()
     private val startup = CompletableDeferred<Unit>()
     private val audioDirectory = File(app.filesDir, "offline-audio")
     private var catalogTracks = emptyList<Track>()
@@ -80,8 +81,18 @@ class MusicRepository(
                 lock.withLock {
                     val savedCatalog = runCatching { TrackJson.decodeList(prefs.getString("catalogTracks", "[]")!!) }
                         .getOrDefault(emptyList())
-                    catalogTracks = (initial.first + savedCatalog).distinctBy(Track::id)
+                    catalogTracks = (initial.first.filter { it.streamUri.startsWith("asset:") } + savedCatalog + initial.first).distinctBy(Track::id)
                     specifications.putAll(initial.second)
+                    runCatching {
+                        val savedSpecs = JSONObject(prefs.getString("downloadSpecs", "{}")!!)
+                        savedSpecs.keys().forEach { id ->
+                            val spec = savedSpecs.getJSONObject(id)
+                            specifications[id] = DownloadSpec(
+                                spec.optString("sha256").takeIf { it.matches(Regex("[0-9a-f]{64}")) },
+                                spec.optLong("sizeBytes", -1).takeIf { it > 0 },
+                            )
+                        }
+                    }
                     customTracks = runCatching { TrackJson.decodeList(prefs.getString("customTracks", "[]")!!) }
                         .getOrDefault(emptyList())
                     val savedIds = prefs.getStringSet("downloadedIds", emptySet()).orEmpty()
@@ -177,22 +188,25 @@ class MusicRepository(
     fun importLocalFiles(uris: List<Uri>) {
         scope.launch {
             startup.await()
-            val imported = withContext(Dispatchers.IO) {
-                uris.distinct().mapNotNull { uri ->
-                    try {
-                        require(uri.scheme == "content") { "Choose audio with the system file picker." }
-                        readLocalTrack(uri)
-                    } catch (error: Exception) {
-                        if (error is CancellationException) throw error
-                        _error.value = "Couldn't import a file: ${error.readableMessage()}"
-                        null
+            importLock.withLock {
+                val imported = withContext(Dispatchers.IO) {
+                    uris.distinct().mapNotNull { uri ->
+                        try {
+                            require(uri.scheme == "content") { "Choose audio with the system file picker." }
+                            copyLocalTrack(uri)
+                        } catch (error: Exception) {
+                            if (error is CancellationException) throw error
+                            _error.value = "Couldn't import a file: ${error.readableMessage()}"
+                            null
+                        }
                     }
                 }
-            }
-            lock.withLock {
-                customTracks = (imported + customTracks).distinctBy(Track::id)
-                publishTracks()
-                saveLibrary()
+                lock.withLock {
+                    customTracks = (imported + customTracks).distinctBy(Track::id)
+                    downloadedIds.addAll(imported.map(Track::id))
+                    publishTracks()
+                    saveLibrary()
+                }
             }
         }
     }
@@ -334,14 +348,48 @@ class MusicRepository(
         }
     }
 
-    private fun readLocalTrack(uri: Uri): Track {
+    /** SAF may return a cloud document. Copy its bytes before promising offline availability. */
+    private suspend fun copyLocalTrack(uri: Uri): Track {
         val fallback = app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         } ?: "Local audio"
         val id = "local-${digest(uri.toString().toByteArray()).take(24)}"
+        audioDirectory.mkdirs()
+        val target = audioFile(id)
+        val temporary = File(audioDirectory, "${target.name}.import.part")
+        try {
+            var count = 0L
+            val input = app.contentResolver.openInputStream(uri)
+                ?: throw IOException("The document provider couldn't open this audio.")
+            input.use { source ->
+                temporary.outputStream().use { output ->
+                    val buffer = ByteArray(32 * 1024)
+                    while (true) {
+                        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                        val length = source.read(buffer)
+                        if (length < 0) break
+                        count += length
+                        if (count > AudioUrlPolicy.MAX_DOWNLOAD_BYTES) throw IOException("This audio exceeds the 128 MB import limit.")
+                        output.write(buffer, 0, length)
+                    }
+                    output.fd.sync()
+                }
+            }
+            if (count == 0L) throw IOException("The selected audio file is empty.")
+            val header = temporary.inputStream().use { readAtMost(it, 16) }
+            if (!AudioUrlPolicy.looksLikeAudio(header)) throw IOException("Choose an MP3, AAC, M4A, WAV, FLAC, or Ogg audio file.")
+            val track = readLocalTrackMetadata(uri, temporary, fallback, id)
+            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            return track
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    private fun readLocalTrackMetadata(uri: Uri, file: File, fallback: String, id: String): Track {
         val retriever = MediaMetadataRetriever()
         try {
-            retriever.setDataSource(app, uri)
+            retriever.setDataSource(file.absolutePath)
             return Track(
                 id = id,
                 title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf(String::isNotBlank)
@@ -388,10 +436,19 @@ class MusicRepository(
     private suspend fun saveLibrary() {
         val customJson = TrackJson.encodeList(customTracks)
         val catalogJson = TrackJson.encodeList(catalogTracks)
+        val specsJson = JSONObject().apply {
+            specifications.forEach { (id, spec) ->
+                put(id, JSONObject().apply {
+                    spec.sha256?.let { put("sha256", it) }
+                    spec.sizeBytes?.let { put("sizeBytes", it) }
+                })
+            }
+        }.toString()
         val savedDownloads = downloadedIds.toSet()
         withContext(Dispatchers.IO) {
             prefs.edit().putString("customTracks", customJson)
                 .putString("catalogTracks", catalogJson)
+                .putString("downloadSpecs", specsJson)
                 .putStringSet("downloadedIds", savedDownloads).commit()
         }
     }

@@ -2,7 +2,16 @@ package io.github.musicplayer.data
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.ContentProvider
+import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.SharedPreferences
+import android.content.pm.ProviderInfo
+import android.database.Cursor
+import android.database.MatrixCursor
+import android.net.Uri
+import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -12,6 +21,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.filters.SdkSuppress
 import io.github.musicplayer.model.Track
 import java.io.File
 import java.security.MessageDigest
@@ -191,6 +201,39 @@ class RepositoryDownloadTest {
         assertEquals(track.streamUri, repository.tracks.value.first { it.id == track.id }.streamUri)
     }
 
+    @SdkSuppress(minSdkVersion = 29)
+    @Test fun documentImportCopiesAudioBeforeMarkingItOffline() = runBlocking {
+        val providerFile = File(context.filesDir, "provider-fixture.wav").apply { writeBytes(wav) }
+        val provider = object : ContentProvider() {
+            override fun onCreate() = true
+            override fun getType(uri: Uri) = "audio/wav"
+            override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
+                MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME)).apply { addRow(arrayOf("Cloud fixture.wav")) }
+            override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor =
+                ParcelFileDescriptor.open(providerFile, ParcelFileDescriptor.MODE_READ_ONLY)
+            override fun insert(uri: Uri, values: ContentValues?): Uri? = throw UnsupportedOperationException()
+            override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = throw UnsupportedOperationException()
+            override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = throw UnsupportedOperationException()
+        }
+        provider.attachInfo(context, ProviderInfo().apply { authority = "test.audio.provider" })
+        context.testResolver = ContentResolver.wrap(provider)
+        val repository = repository()
+        val uri = Uri.parse("content://test.audio.provider/cloud-fixture.wav")
+        repository.importLocalFiles(listOf(uri))
+        val imported = withTimeout(15000) {
+            repository.tracks.first { tracks -> tracks.any { it.streamUri == uri.toString() && it.offlinePath != null } }
+                .first { it.streamUri == uri.toString() }
+        }
+        assertTrue(imported.isOffline)
+        assertEquals(sha256(wav), sha256(File(imported.offlinePath!!).readBytes()))
+        assertTrue(imported.durationMs >= 23000)
+        assertTrue(providerFile.delete())
+        assertNoPartialFiles()
+        val player = createPlayer(imported.playbackUri)
+        assertPlaybackAdvances(player)
+        assertEquals(0, server.requestCount)
+    }
+
     private suspend fun repository(): MusicRepository = MusicRepository(
         context,
         client,
@@ -288,8 +331,10 @@ class RepositoryDownloadTest {
         private val id = UUID.randomUUID().toString()
         private val directory = File(base.cacheDir, "repository-test-$id").apply { mkdirs() }
         private val preferenceNames = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+        var testResolver: ContentResolver? = null
         override fun getApplicationContext(): Context = this
         override fun getFilesDir(): File = directory
+        override fun getContentResolver(): ContentResolver = testResolver ?: baseContext.contentResolver
         override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
             val isolatedName = "repository-test-$id-$name"
             preferenceNames.add(isolatedName)

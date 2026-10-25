@@ -15,7 +15,7 @@ data class Track(
     val license: String = "",
     val offlinePath: String? = null,
 ) {
-    val isOffline: Boolean get() = offlinePath != null || streamUri.startsWith("content:") || streamUri.startsWith("asset:")
+    val isOffline: Boolean get() = offlinePath != null || streamUri.startsWith("asset:")
     val playbackUri: String get() = offlinePath?.let { java.io.File(it).toURI().toString() } ?: streamUri
 }
 
