@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.musicplayer.data.AudioUrlPolicy
 import io.github.musicplayer.model.DownloadState
 import io.github.musicplayer.model.Track
 import kotlin.math.PI
@@ -590,7 +591,7 @@ private fun AddSourceDialog(actions: PlayerActions, onDismiss: () -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var permission by rememberSaveable { mutableStateOf(false) }
-    val validUrl = runCatching { java.net.URI(url.trim()).let { it.scheme.equals("https", true) && !it.host.isNullOrBlank() && it.userInfo == null } }.getOrDefault(false)
+    val validUrl = remember(url) { runCatching { AudioUrlPolicy.validateHttps(url) }.isSuccess }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Column { Eyebrow("LIBRARY / NEW SOURCE", color = Cyan); Text("Bring your sound", modifier = Modifier.padding(top = 8.dp)) } },

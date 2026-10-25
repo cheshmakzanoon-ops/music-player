@@ -5,20 +5,25 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.os.SystemClock
-import android.view.Choreographer
-import android.view.inspector.WindowInspector
+import android.view.View
+import android.view.ViewTreeObserver
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.UiController
+import androidx.test.espresso.ViewAction
+import androidx.test.espresso.matcher.ViewMatchers.isRoot as isAndroidRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.platform.graphics.HardwareRendererCompat
 import androidx.test.uiautomator.UiDevice
 import io.github.musicplayer.playback.PlayerService
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.hamcrest.Matcher
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -155,6 +160,8 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("stream_url").performTextInput("http://example.com/audio.wav")
         compose.onNodeWithTag("stream_permission").performScrollTo().performClick()
         compose.onNodeWithTag("confirm_add_stream").assertIsNotEnabled()
+        compose.onNodeWithTag("stream_url").performScrollTo().performTextReplacement("https://example.com/audio.wav#fragment")
+        compose.onNodeWithTag("confirm_add_stream").assertIsNotEnabled()
         compose.onNodeWithTag("stream_url").performScrollTo().performTextReplacement("https://example.com/audio.wav")
         compose.onNodeWithTag("confirm_add_stream").assertIsEnabled().performClick()
         compose.waitUntil(5_000) { model.repository.tracks.value.any { it.title == "My recording" } }
@@ -225,45 +232,74 @@ class PlayerJourneyTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        awaitPresentedFrame()
-        captureScreenshot(name)
+        // Compose idleness settles semantics, not necessarily the native render buffer. Like
+        // AndroidX WindowCapture, enable drawing and force the focused root (including dialogs)
+        // to submit a frame before asking UiAutomation for the composed display.
+        // https://developer.android.com/reference/android/view/ViewTreeObserver#registerFrameCommitCallback(java.lang.Runnable)
+        val wasDrawingEnabled = HardwareRendererCompat.isDrawingEnabled()
+        try {
+            HardwareRendererCompat.setDrawingEnabled(true)
+            awaitRenderedWindow()
+            captureScreenshot(name)
+        } finally {
+            HardwareRendererCompat.setDrawingEnabled(wasDrawingEnabled)
+        }
     }
 
-    /** Compose semantics can settle before Android submits/presents the window's pixels. */
-    private fun awaitPresentedFrame() {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.waitForIdleSync()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val committed = CountDownLatch(1)
-            instrumentation.runOnMainSync {
-                // Inspect the focused window so dialogs are fenced too, rather than
-                // accidentally waiting only for the Activity behind the dialog.
-                val root = WindowInspector.getGlobalWindowViews().lastOrNull {
-                    it.isAttachedToWindow && it.isShown && it.hasWindowFocus() && it.isHardwareAccelerated
-                }
-                if (root == null) {
-                    committed.countDown()
+    private fun awaitRenderedWindow() {
+        val drawn = CountDownLatch(1)
+        lateinit var root: View
+        var drawListener: ViewTreeObserver.OnDrawListener? = null
+        var commitCallback: Runnable? = null
+        onView(isAndroidRoot()).perform(object : ViewAction {
+            override fun getDescription() = "Submit a fresh frame of the focused window"
+            override fun getConstraints(): Matcher<View> = isAndroidRoot()
+            override fun perform(uiController: UiController, view: View) {
+                root = view
+                if (Build.VERSION.SDK_INT >= 29 && view.isHardwareAccelerated) {
+                    val callback = Runnable { drawn.countDown() }
+                    commitCallback = callback
+                    view.viewTreeObserver.registerFrameCommitCallback(callback)
                 } else {
-                    root.viewTreeObserver.registerFrameCommitCallback { committed.countDown() }
-                    root.invalidate()
+                    // API 26 has no frame-commit callback; await an actual draw pass, then let
+                    // the render thread/compositor advance using the VSYNC callbacks below.
+                    val listener = object : ViewTreeObserver.OnDrawListener {
+                        var handled = false
+                        override fun onDraw() {
+                            if (handled) return
+                            handled = true
+                            view.post {
+                                if (view.viewTreeObserver.isAlive) {
+                                    view.viewTreeObserver.removeOnDrawListener(this)
+                                }
+                                drawn.countDown()
+                            }
+                        }
+                    }
+                    drawListener = listener
+                    view.viewTreeObserver.addOnDrawListener(listener)
+                }
+                view.invalidate()
+            }
+        })
+        try {
+            assertTrue("The focused window did not render within 5 seconds", drawn.await(5, TimeUnit.SECONDS))
+            // A committed buffer need not be visible yet. Two real display frames allow the
+            // compositor to present it; this waits on VSYNC rather than an arbitrary sleep.
+            val presented = CountDownLatch(1)
+            root.postOnAnimation { root.postOnAnimation { presented.countDown() } }
+            assertTrue("The display did not present the rendered frame", presented.await(2, TimeUnit.SECONDS))
+        } finally {
+            root.post {
+                val observer = root.viewTreeObserver
+                if (observer.isAlive) {
+                    drawListener?.let(observer::removeOnDrawListener)
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        commitCallback?.let { observer.unregisterFrameCommitCallback(it) }
+                    }
                 }
             }
-            check(committed.await(5, TimeUnit.SECONDS)) { "The visible window did not commit its screenshot frame" }
         }
-        // API 26 has no frame-commit callback. Real Android vsyncs also let the
-        // compositor present submitted buffers on newer versions before capture.
-        val frames = CountDownLatch(1)
-        instrumentation.runOnMainSync {
-            val choreographer = Choreographer.getInstance()
-            choreographer.postFrameCallback {
-                choreographer.postFrameCallback {
-                    choreographer.postFrameCallback { frames.countDown() }
-                }
-            }
-        }
-        check(frames.await(5, TimeUnit.SECONDS)) { "Android did not present screenshot frames" }
-        instrumentation.waitForIdleSync()
-        SystemClock.sleep(100) // Bounded SurfaceFlinger settling after the actual draw fences.
     }
 
     private fun captureScreenshot(name: String) {
