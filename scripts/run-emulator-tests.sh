@@ -21,3 +21,7 @@ if not re.search(r'OK \(\d+ tests?\)', result) or 'FAILURES!!!' in result or 'IN
     raise SystemExit('Android instrumented tests did not pass; see instrumentation.txt and logcat.txt')
 print('Android instrumentation passed.')
 PY
+
+if [[ "${1:-}" == "35" ]]; then
+  bash scripts/frida-smoke.sh
+fi
