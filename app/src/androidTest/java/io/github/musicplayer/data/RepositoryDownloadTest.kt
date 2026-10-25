@@ -30,6 +30,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -39,6 +40,8 @@ import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import okio.Buffer
@@ -147,10 +150,33 @@ class RepositoryDownloadTest {
 
     @Test fun httpsStreamUsesRealNetworkAndDecoder() = runBlocking {
         val ogg = InstrumentationRegistry.getInstrumentation().context.assets.open("night-drive.ogg").use { it.readBytes() }
-        server.enqueue(MockResponse().setHeader("Content-Type", "audio/ogg").setBody(Buffer().write(ogg)))
+        val rangeRequests = CopyOnWriteArrayList<String>()
+        // Ogg seeks to the last page to determine its duration, then reopens the audio payload.
+        // A single queued response leaves those subsequent requests waiting indefinitely.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path != "/stream.ogg") return MockResponse().setResponseCode(404)
+                val response = MockResponse().setHeader("Content-Type", "audio/ogg").setHeader("Accept-Ranges", "bytes")
+                val range = request.getHeader("Range") ?: return response.setBody(Buffer().write(ogg))
+                rangeRequests.add(range)
+                val match = Regex("bytes=(\\d+)-(\\d*)").matchEntire(range)
+                    ?: return response.setResponseCode(416).setHeader("Content-Range", "bytes */${ogg.size}")
+                val start = match.groupValues[1].toLongOrNull()
+                    ?: return response.setResponseCode(416).setHeader("Content-Range", "bytes */${ogg.size}")
+                val end = match.groupValues[2].toLongOrNull()?.coerceAtMost(ogg.lastIndex.toLong()) ?: ogg.lastIndex.toLong()
+                if (start !in 0L..ogg.lastIndex.toLong() || end < start) {
+                    return response.setResponseCode(416).setHeader("Content-Range", "bytes */${ogg.size}")
+                }
+                return response.setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$end/${ogg.size}")
+                    .setBody(Buffer().write(ogg, start.toInt(), (end - start + 1).toInt()))
+            }
+        }
         val player = createPlayer(server.url("/stream.ogg").toString(), network = true)
         assertPlaybackAdvances(player)
         assertEquals("/stream.ogg", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+        assertTrue("Ogg duration discovery should exercise HTTP byte ranges", rangeRequests.isNotEmpty())
+        withContext(Dispatchers.Main) { assertTrue(player.duration >= 23000L) }
     }
 
     @Test fun trackQueuedBeforeDownloadResolvesOfflineWhenOpenedLater() = runBlocking {
