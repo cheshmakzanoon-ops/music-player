@@ -15,24 +15,30 @@ application; the local library needs neither. [Configuration](docs/SPOTIFY_CONNE
 
 ## Catalogue-enabled build — 2026-10-25
 
-The [Spotify catalogue integration build](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490)
-passed **16 JVM tests, 18 Android 8 emulator tests, 19 Android 15 emulator
+**Version 0.3.0** passed the complete [Spotify catalogue integration workflow](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097)
+at tested source revision `cf11d0c`: **16 JVM tests, 19 Android 8 emulator tests, 20 Android 15 emulator
 tests**, Android lint (0 errors, 25 warnings), and the Android 15 Frida
 lifecycle check. It verifies the in-app catalogue UI, secure PKCE/loopback
 authorization components, real Web API request/response parsing against a mock
-server, and continued account-free local playback. A real Spotify account was
-not supplied, so live authorized catalogue access is still unverified.
+server, populated Spotify result interaction, and continued account-free local
+playback. A real Spotify account was not supplied, so live authorized catalogue
+access is still unverified.
 
-[Download the catalogue integration test APK](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597240925)
+[Download the verified v0.3.0 APK](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097/artifacts/12597327900)
 (`debug/app-debug.apk` inside `validation-apks`) or choose the latest green run
 from [Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml).
+The APK is 22,439,389 bytes, has SHA-256
+`de7b78cbdc9704c4b0955643bfda51793927d982a1b244d103c66660181d1d43`,
+and passed signature and ZIP-alignment verification. This is a debug build for
+testing, not a signed store release.
 
 | Spotify catalogue Search | Spotify connection |
 | --- | --- |
 | ![Spotify catalogue Search](docs/screenshots/spotify-catalogue-search-api35.png) | ![Spotify connection settings](docs/screenshots/spotify-catalogue-connection-api35.png) |
 
-Both screenshots are unmodified Android 15 emulator captures showing the honest
-unconfigured state; they do **not** depict an authenticated Spotify session.
+Both screenshots are unmodified Android 15 emulator captures from the earlier
+successful catalogue build (same UI), showing the honest unconfigured state;
+they do **not** depict an authenticated Spotify session.
 See [the catalogue verification evidence](docs/VERIFICATION.md#spotify-catalogue-extension--2026-10-25)
 and [configuration instructions](docs/SPOTIFY_CONNECTION.md) before distributing
 a Spotify-enabled APK.

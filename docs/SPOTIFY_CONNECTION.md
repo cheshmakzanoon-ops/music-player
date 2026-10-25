@@ -127,7 +127,8 @@ unaffected. No production identifiers were supplied for this implementation.
 JVM tests cover PKCE state/redirects, an actual loopback listener, mocked
 Spotify Web API search/token exchange, HTTP errors, configuration and link
 validation. Android
-emulator tests cover account-free launch, the optional connection screen, its
+emulator tests cover catalogue-result rendering and exact Spotify URI selection,
+account-free launch, the optional connection screen, its
 unavailable-service state, returning to the local library, and the local player's
 real audio/download journeys. Those tests do **not** prove an authenticated
 live Spotify session, live catalogue search or catalogue playback.

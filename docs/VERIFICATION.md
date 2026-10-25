@@ -142,6 +142,45 @@ Live Spotify access and playback therefore remain **unverified**, and Spotify
 continues to enforce account, market, playback and offline-access restrictions.
 
 Later changes add a deterministic populated-result UI emulator test and advance
-the catalogue-capable app to version 0.3.0. The latest run in
-[Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
-is authoritative for those later code changes.
+the catalogue-capable app to version 0.3.0. Those changes were successfully
+verified in the final workflow recorded below.
+
+### Final version 0.3.0 verification
+
+**[Run 40188827097](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097)**
+completed successfully for tested source revision
+[`cf11d0c1cf1852602a479f46ff07e3328a3376ba`](https://github.com/cheshmakzanoon-ops/music-player/commit/cf11d0c1cf1852602a479f46ff07e3328a3376ba).
+All three workflow jobs succeeded.
+
+| Check | Verified result | Artifact |
+| --- | --- | --- |
+| Kotlin compile, JVM tests, lint, APKs | **16/16 JVM tests**, 0 lint errors, 25 warnings | [Build reports](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097/artifacts/12596968516) |
+| Android 8 / API 26 x86-64 | **19/19 emulator tests** passed in 44.126 seconds | [API 26 evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097/artifacts/12597202311) |
+| Android 15 / API 35 x86-64 | **20/20 emulator tests** passed in 97.881 seconds | [API 35 evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097/artifacts/12597398385) |
+| Frida on Android 15 | Both observer/lifecycle markers observed, process exit 0 | API 35 evidence |
+| Installable Android application | `debug/app-debug.apk` in archive | [Validation APKs](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097/artifacts/12597327900) |
+
+The latest emulator suites include the fixture-based test that renders Spotify
+track, album and artist search rows and checks the exact `spotify:` URI emitted
+on selection. No real Spotify account or Spotify-hosted audio stream was simulated.
+
+The actual 0.3.0 APK was independently downloaded, inspected and checked:
+
+| Property | Verified value |
+| --- | --- |
+| Package | `io.github.musicplayer` |
+| Version | `0.3.0`, version code `3` |
+| Minimum / target Android API | 26 / 35 |
+| APK size | 22,439,389 bytes |
+| APK SHA-256 | `de7b78cbdc9704c4b0955643bfda51793927d982a1b244d103c66660181d1d43` |
+| APK signing | Debug signature v2 valid |
+| APK certificate SHA-1 | `d56154cf64efb7d64a8b15948ad996cd71a2b03d` |
+| 16 KiB ZIP alignment | `zipalign -c -P 16 -v 4` passed |
+| ZIP archive integrity | `unzip -t` passed |
+
+These exact numbers apply to the tested source revision above. A documentation
+commit after it does not modify app files or invalidate the test evidence.
+The debug certificate changes across fresh Actions builds; register the
+fingerprint of the **actual APK installed** when setting up App Remote.
+Live Spotify access still requires the registered public Client ID and a
+Spotify-authorized user; it is not included in this test APK.
