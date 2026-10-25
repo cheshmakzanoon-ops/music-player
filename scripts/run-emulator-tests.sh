@@ -55,7 +55,11 @@ adb shell settings put system font_scale 1.0
 adb shell input keyevent 82
 adb install -r -t ci-apks/debug/app-debug.apk
 adb install -r -t ci-apks/androidTest/debug/app-debug-androidTest.apk
-adb logcat -c
+# Some Android 8 images refuse to clear the main buffer; this must not prevent
+# instrumentation from running. The exit trap still captures available logs.
+if ! adb logcat -c; then
+  echo 'Warning: emulator log buffer could not be cleared; continuing with tests.' >&2
+fi
 timeout --signal=TERM 8m adb shell am instrument -w -r io.github.musicplayer.test/androidx.test.runner.AndroidJUnitRunner | tee ci-artifacts/instrumentation.txt
 
 python3 - <<'PY'
