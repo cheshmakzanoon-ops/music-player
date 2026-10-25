@@ -7,9 +7,9 @@ collect_evidence() {
   timeout --kill-after=5s 20s adb logcat -d > ci-artifacts/logcat.txt 2>&1 || true
   timeout --kill-after=5s 30s adb pull /sdcard/Android/data/io.github.musicplayer/files/screenshots ci-artifacts/screenshots >/dev/null 2>&1 || true
   if [[ "$status" -ne 0 ]]; then
-    timeout --kill-after=5s 15s adb exec-out screencap -p > ci-artifacts/failure-screen.png 2>/dev/null || true
+    timeout --kill-after=5s 10s adb exec-out screencap -p > ci-artifacts/failure-screen.png 2>/dev/null || true
   fi
-  timeout --kill-after=5s 10s adb shell settings put system font_scale 1.0 >/dev/null 2>&1 || true
+  timeout --kill-after=5s 5s adb shell settings put system font_scale 1.0 >/dev/null 2>&1 || true
   python3 - "$status" <<'PY'
 from pathlib import Path
 import json
@@ -106,7 +106,7 @@ frida_status=0
 frida_required=false
 if [[ "$actual_api" == "35" ]]; then
   frida_required=true
-  if bash scripts/frida-smoke.sh; then
+  if timeout --signal=TERM --kill-after=10s 6m bash scripts/frida-smoke.sh; then
     frida_status=0
   else
     frida_status=$?
