@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "verified_date": "2026-10-25",
+  "source_revision": "b7b2d3f53eb85f0106d79ae0ad79427144634eb8",
+  "workflow": {
+    "run_id": 40184075722,
+    "url": "https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722",
+    "conclusion": "success"
+  },
+  "application": {
+    "package": "io.github.musicplayer",
+    "version_name": "0.2.0",
+    "version_code": 2,
+    "min_sdk": 26,
+    "target_sdk": 35,
+    "variant": "debug",
+    "apk_bytes": 22373853,
+    "apk_sha256": "b40f1d2e7d596e593dbde5aff85c20435a899028d9b668bcffd402de6ae9e334",
+    "apk_signature_v2": "verified",
+    "zip_alignment_16k": "passed",
+    "signer_certificate_sha1": "b2e833053881d1c10e8ac0eb58aa0b37631b6d1a",
+    "apk_artifact_url": "https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595024417"
+  },
+  "jvm_tests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 20
+  },
+  "emulators": [
+    {
+      "api": 26,
+      "android_version": "8.0.0",
+      "abi": "x86_64",
+      "instrumentation_passed": 17,
+      "instrumentation_failed": 0,
+      "instrumentation_seconds": 43.593,
+      "screenshots_captured": 10,
+      "frida": {
+        "required": false,
+        "exit_code": null
+      },
+      "emulator_shutdown": "passed"
+    },
+    {
+      "api": 35,
+      "android_version": "15",
+      "abi": "x86_64",
+      "instrumentation_passed": 18,
+      "instrumentation_failed": 0,
+      "instrumentation_seconds": 86.408,
+      "screenshots_captured": 10,
+      "frida": {
+        "required": true,
+        "exit_code": 0
+      },
+      "emulator_shutdown": "passed"
+    }
+  ],
+  "published_screenshots": [
+    {
+      "path": "docs/screenshots/discover-api26.png",
+      "api": 26,
+      "source_artifact": "emulator-api-26",
+      "source_file": "screenshots/01-discover.png",
+      "pixels": [
+        1080,
+        1920
+      ],
+      "sha256": "a8aed71a04bcca219a14e6af4203b01ac438b45a967aa68f5f7824630fabe178"
+    },
+    {
+      "path": "docs/screenshots/now-playing-api35.png",
+      "api": 35,
+      "source_artifact": "emulator-api-35",
+      "source_file": "screenshots/04-now-playing.png",
+      "pixels": [
+        1080,
+        1920
+      ],
+      "sha256": "312a7f4aa456fc7371592e09a6e154567e4e5e427f09a67ea4cb8f7c4dfce379"
+    },
+    {
+      "path": "docs/screenshots/search-api35.png",
+      "api": 35,
+      "source_artifact": "emulator-api-35",
+      "source_file": "screenshots/02-search.png",
+      "pixels": [
+        1080,
+        1920
+      ],
+      "sha256": "4d6365b8d816cb964d36b5d3f11be650b033217dc2ea187e20ba69acf108fd75"
+    },
+    {
+      "path": "docs/screenshots/queue-api35.png",
+      "api": 35,
+      "source_artifact": "emulator-api-35",
+      "source_file": "screenshots/05-queue.png",
+      "pixels": [
+        1080,
+        1920
+      ],
+      "sha256": "9267134a55705852a0f6fb2b60ce436fae7a8fe95d2832365e00337df93dbc33"
+    },
+    {
+      "path": "docs/screenshots/settings-large-text-api26.png",
+      "api": 26,
+      "source_artifact": "emulator-api-26",
+      "source_file": "screenshots/08-settings-large-text.png",
+      "pixels": [
+        1080,
+        1920
+      ],
+      "sha256": "518be9ee4ef7f1fef3af25f1f6fff72a6423b05e0d08fb6e2296015cd687076f"
+    }
+  ],
+  "excluded_screenshot": {
+    "artifact": "emulator-api-35",
+    "file": "screenshots/08-settings-large-text.png",
+    "reason": "Stale Discover frame after font-scale recreation; not valid Settings evidence. Settings assertions passed. API26 Settings capture is valid."
+  },
+  "verification_limits": [
+    "Authenticated Spotify playback is not configured or verified.",
+    "The included catalogue is six original 24-second samples, not Spotify catalogue audio.",
+    "No physical-device, all-phone or worldwide-availability guarantee is established.",
+    "Frida observes the rebuilt app only; the supplied modified reference APK was not executed."
+  ]
+}

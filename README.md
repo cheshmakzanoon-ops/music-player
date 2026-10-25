@@ -13,18 +13,35 @@ PKCE authorization. Its separate App Remote integration controls playback
 through the official Spotify app. Both require a registered Spotify developer
 application; the local library needs neither. [Configuration](docs/SPOTIFY_CONNECTION.md).
 
-## Preview
+## Verified build — 2026-10-25
 
-Actual emulator captures from the [successful validation run](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722).
+**Version 0.2.0 passed the complete [Android validation run](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722)**
+at source revision `b7b2d3f`: eight JVM tests, 17 Android 8 tests, 18 Android 15
+tests, Android lint with zero errors, and the Frida runtime observation.
 
-| Discover · Android 15 | Now Playing · Android 15 |
+[Download the tested APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595024417)
+and install `debug/app-debug.apk` from it. This is a **debug build for testing**, for
+Android 8.0 or newer. Its size is 22,373,853 bytes. The exact checksum, test results,
+artifact links and remaining verification limits are in [VERIFICATION.md](docs/VERIFICATION.md).
+
+### Actual emulator screenshots
+
+These unmodified captures come from the successful run above. Discover is shown
+on Android 8; the player, search and queue are shown on Android 15.
+
+| Discover | Now playing |
 | --- | --- |
-| ![NIGHT SHIFT Discover](docs/screenshots/discover-api35.png) | ![NIGHT SHIFT Now Playing](docs/screenshots/now-playing-api35.png) |
+| ![Discover](docs/screenshots/discover-api26.png) | ![Now playing](docs/screenshots/now-playing-api35.png) |
+| Search | Queue |
+| ![Search](docs/screenshots/search-api35.png) | ![Queue](docs/screenshots/queue-api35.png) |
 
-[Spotify connection](docs/screenshots/spotify-connection-api35.png) ·
-[Large-text Settings on Android 8](docs/screenshots/settings-large-text-api26.png) ·
-[Large-text source dialog on Android 15](docs/screenshots/source-large-text-api35.png) ·
-[Capture provenance](docs/screenshots/README.md)
+The [large-text Settings capture](docs/screenshots/settings-large-text-api26.png)
+comes from Android 8. The Android 15 Settings capture is stale and is excluded;
+the [verification record](docs/VERIFICATION.md#visual-evidence) explains that limitation.
+
+Additional captures: [Spotify connection](docs/screenshots/spotify-connection-api35.png),
+[large-text source dialog](docs/screenshots/source-large-text-api35.png), and
+[capture provenance](docs/screenshots/README.md).
 
 ## What is in this repository
 
@@ -34,6 +51,7 @@ Actual emulator captures from the [successful validation run](https://github.com
 | `catalog/` | Six original procedural studio samples, their HTTPS URLs, checksums, and download permissions. |
 | `docs/APK_ANALYSIS.md` | Evidence from static inspection of the supplied reference client. |
 | `docs/SPOTIFY_CONNECTION.md` | Supported Spotify integration, configuration and verification limits. |
+| `docs/VERIFICATION.md` | Completed CI results, APK identity, reviewed screenshots and known evidence limits. |
 | `app/libs/` | Published Spotify App Remote SDK with upstream license, notices and checksum. |
 | `reference/` | Unchanged uploaded reference APK, stored with Git LFS. Not included in the new app or its build. |
 | `.github/workflows/android.yml` | Build, lint, unit tests, Android emulator tests, APKs, and screenshot artifacts. |
@@ -86,20 +104,6 @@ verified. Spotify's development-mode Web API is currently limited to five
 allowlisted users and requires the developer's Premium account. See the
 [setup instructions](docs/SPOTIFY_CONNECTION.md).
 
-## Install an Actions build
-
-**Verified version 0.2.0:** [Download the APK artifact](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595024417)
-from source revision **`b7b2d3f`**. The [run](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722)
-passed 8 JVM tests, lint with zero errors, 17 Android 8 emulator tests, 18 Android 15
-emulator tests, and the Android 15 Frida lifecycle check. [Detailed verification record](docs/DEVELOPMENT.md).
-
-Open the [Android validation workflow](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
-and select a completed successful run. Download its **`validation-apks`** artifact,
-extract the ZIP, and install **`debug/app-debug.apk`** on an Android 8.0 or newer
-device. The run also provides the build reports and separate API 26/API 35
-emulator logs and screenshots. These are debug builds for testing; release
-distribution uses your own signing identity.
-
 ## Build
 
 Requires **JDK 17**, Android SDK platform 35 and build tools 35.0.0. The Gradle 8.11.1
@@ -140,11 +144,6 @@ Emulator screenshots and instrumentation/logcat logs are uploaded as run artifac
 The [Actions runs](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
 show the actual verification status for each commit. A test suite being present is
 not evidence that it passed; consult the run for the revision you download.
-
-The verified delivery's application source is `b7b2d3f`; later documentation and
-screenshot-only commits do not trigger another build. Its lint report contains
-20 warnings and zero errors. The API 29+ document-provider import fixture runs on
-API 35, which accounts for the 18-versus-17 emulator test counts.
 
 ## Practical limits
 

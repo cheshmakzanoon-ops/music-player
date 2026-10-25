@@ -7,13 +7,16 @@ running on the workflow's Pixel 2 x86-64 Android emulators.
 
 | Capture | Device | Original artifact file |
 | --- | --- | --- |
-| [Discover](discover-api35.png) | Android 15 / API 35 | `01-discover.png` |
+| [Discover, full header](discover-api26.png) | Android 8 / API 26 | `01-discover.png` |
+| [Search](search-api35.png) | Android 15 / API 35 | `02-search.png` |
+| [Queue](queue-api35.png) | Android 15 / API 35 | `05-queue.png` |
+| [Discover, scrolled](discover-api35.png) | Android 15 / API 35 | `01-discover.png` |
 | [Now Playing](now-playing-api35.png) | Android 15 / API 35 | `04-now-playing.png` |
 | [Spotify connection](spotify-connection-api35.png) | Android 15 / API 35 | `10-spotify-connection.png` |
 | [Source dialog at 1.5× font scale](source-large-text-api35.png) | Android 15 / API 35 | `09-source-large-text.png` |
 | [Settings at 1.5× font scale](settings-large-text-api26.png) | Android 8 / API 26 | `08-settings-large-text.png` |
 
-All five selected images were visually reviewed for the intended screen, readable
+All eight selected images were visually reviewed for the intended screen, readable
 text and reachable controls. The Spotify image shows the real unconfigured state
 of this build; it is not evidence of an authenticated connection.
 
