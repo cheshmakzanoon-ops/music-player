@@ -105,6 +105,7 @@ class SpotifyCatalogApiTest {
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { api.searchPage("test-access", "ambient", -10) }
         }
+        Unit // JUnit 4 test methods must return void, not the exception from assertThrows.
     }
 
     @Test fun forbiddenAndRateLimitedResponsesRemainVisibleErrors() = runBlocking {
