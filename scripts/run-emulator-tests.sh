@@ -50,7 +50,7 @@ PY
 }
 trap collect_evidence EXIT
 
-adb wait-for-device
+timeout --kill-after=5s 30s adb wait-for-device
 {
   git rev-parse HEAD
   adb shell getprop ro.build.version.sdk
@@ -72,7 +72,7 @@ adb install -r -t ci-apks/debug/app-debug.apk
 adb install -r -t ci-apks/androidTest/debug/app-debug-androidTest.apk
 # Some Android 8 images refuse to clear the main buffer; this must not prevent
 # instrumentation from running. The exit trap still captures available logs.
-if ! adb logcat -c; then
+if ! timeout --kill-after=5s 10s adb logcat -c; then
   echo 'Warning: emulator log buffer could not be cleared; continuing with tests.' >&2
 fi
 # Run both independent checks before deciding the job result. Preserve transport,
