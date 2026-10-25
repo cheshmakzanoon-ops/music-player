@@ -360,7 +360,7 @@ private fun LibraryScreen(state: PlayerUiState, actions: PlayerActions, onAddSou
         }
         item {
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("${tracks.size} tracks", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                Text("${tracks.size} ${if (tracks.size == 1) "track" else "tracks"}", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = actions.onRefreshCatalog, enabled = !state.catalogLoading, modifier = Modifier.testTag("refresh_catalog")) {
                     if (state.catalogLoading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(17.dp))
                     Text("Refresh", modifier = Modifier.padding(start = 6.dp), fontSize = 12.sp)

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -35,13 +36,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.rgb(8, 12, 19)),
+        )
         setContent {
             var spotifyPanel by rememberSaveable { mutableStateOf(false) }
             val tracks by model.repository.tracks.collectAsStateWithLifecycle()
             val favorites by model.repository.favorites.collectAsStateWithLifecycle()
             val downloads by model.repository.downloads.collectAsStateWithLifecycle()
             val loading by model.repository.refreshing.collectAsStateWithLifecycle()
+            val libraryReady by model.repository.ready.collectAsStateWithLifecycle()
             val repositoryError by model.repository.error.collectAsStateWithLifecycle()
             val playback by model.player.state.collectAsStateWithLifecycle()
             val reduceMotion by model.reduceMotion.collectAsStateWithLifecycle()
@@ -64,7 +69,7 @@ class MainActivity : ComponentActivity() {
                     playback = playback,
                     favorites = favorites,
                     downloads = downloads,
-                    catalogLoading = loading,
+                    catalogLoading = loading || !libraryReady,
                     message = message ?: repositoryError ?: playback.error,
                     reduceMotion = reduceMotion,
                 ),

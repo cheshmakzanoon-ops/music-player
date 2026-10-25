@@ -3,7 +3,11 @@ package io.github.musicplayer
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
+import android.view.Choreographer
+import android.view.inspector.WindowInspector
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -13,6 +17,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import io.github.musicplayer.playback.PlayerService
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -219,7 +225,45 @@ class PlayerJourneyTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
+        awaitPresentedFrame()
         captureScreenshot(name)
+    }
+
+    /** Compose semantics can settle before Android submits/presents the window's pixels. */
+    private fun awaitPresentedFrame() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val committed = CountDownLatch(1)
+            instrumentation.runOnMainSync {
+                // Inspect the focused window so dialogs are fenced too, rather than
+                // accidentally waiting only for the Activity behind the dialog.
+                val root = WindowInspector.getGlobalWindowViews().lastOrNull {
+                    it.isAttachedToWindow && it.isShown && it.hasWindowFocus() && it.isHardwareAccelerated
+                }
+                if (root == null) {
+                    committed.countDown()
+                } else {
+                    root.viewTreeObserver.registerFrameCommitCallback { committed.countDown() }
+                    root.invalidate()
+                }
+            }
+            check(committed.await(5, TimeUnit.SECONDS)) { "The visible window did not commit its screenshot frame" }
+        }
+        // API 26 has no frame-commit callback. Real Android vsyncs also let the
+        // compositor present submitted buffers on newer versions before capture.
+        val frames = CountDownLatch(1)
+        instrumentation.runOnMainSync {
+            val choreographer = Choreographer.getInstance()
+            choreographer.postFrameCallback {
+                choreographer.postFrameCallback {
+                    choreographer.postFrameCallback { frames.countDown() }
+                }
+            }
+        }
+        check(frames.await(5, TimeUnit.SECONDS)) { "Android did not present screenshot frames" }
+        instrumentation.waitForIdleSync()
+        SystemClock.sleep(100) // Bounded SurfaceFlinger settling after the actual draw fences.
     }
 
     private fun captureScreenshot(name: String) {
