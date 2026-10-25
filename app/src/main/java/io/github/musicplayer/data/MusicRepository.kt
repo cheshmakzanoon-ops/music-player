@@ -15,11 +15,13 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ensureActive
@@ -49,7 +51,8 @@ class MusicRepository(
     private val lock = Mutex()
     private val importLock = Mutex()
     private val startup = CompletableDeferred<Unit>()
-    private val audioDirectory = File(app.filesDir, "offline-audio")
+    private val audioStore = OfflineAudioStore(app)
+    private val audioDirectory = audioStore.directory
     private var catalogTracks = emptyList<Track>()
     private var customTracks = emptyList<Track>()
     private val specifications = ConcurrentHashMap<String, DownloadSpec>()
@@ -75,7 +78,6 @@ class MusicRepository(
             try {
                 val initial = withContext(Dispatchers.IO) {
                     audioDirectory.mkdirs()
-                    audioDirectory.listFiles()?.filter { it.name.endsWith(".part") }?.forEach(File::delete)
                     app.assets.open("catalog.json").bufferedReader().use { parseCatalog(it.readText()) }
                 }
                 lock.withLock {
@@ -96,7 +98,7 @@ class MusicRepository(
                     customTracks = runCatching { TrackJson.decodeList(prefs.getString("customTracks", "[]")!!) }
                         .getOrDefault(emptyList())
                     val savedIds = prefs.getStringSet("downloadedIds", emptySet()).orEmpty()
-                    downloadedIds.addAll(savedIds.filter { audioFile(it).let { file -> file.isFile && file.length() > 0 } })
+                    downloadedIds.addAll(withContext(Dispatchers.IO) { audioStore.reconcile(savedIds) })
                     publishTracks()
                     saveLibrary()
                 }
@@ -177,10 +179,15 @@ class MusicRepository(
                 source = "Your HTTPS stream",
                 license = if (downloadAllowed) "User confirms permission to save this audio" else "Streaming only",
             )
-            lock.withLock {
-                customTracks = listOf(track) + customTracks.filterNot { it.id == id }
-                publishTracks()
-                saveLibrary()
+            try {
+                lock.withLock {
+                    customTracks = listOf(track) + customTracks.filterNot { it.id == id }
+                    publishTracks()
+                    saveLibrary()
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _error.value = "Couldn't save this stream: ${error.readableMessage()}"
             }
         }
     }
@@ -188,25 +195,50 @@ class MusicRepository(
     fun importLocalFiles(uris: List<Uri>) {
         scope.launch {
             startup.await()
-            importLock.withLock {
-                val imported = withContext(Dispatchers.IO) {
-                    uris.distinct().mapNotNull { uri ->
-                        try {
-                            require(uri.scheme == "content") { "Choose audio with the system file picker." }
-                            copyLocalTrack(uri)
-                        } catch (error: Exception) {
-                            if (error is CancellationException) throw error
-                            _error.value = "Couldn't import a file: ${error.readableMessage()}"
-                            null
+            try {
+                importLock.withLock {
+                    val written = ConcurrentHashMap.newKeySet<String>()
+                    val previouslySaved = downloadedIds.toSet()
+                    var registered = false
+                    try {
+                        val imported = withContext(Dispatchers.IO) {
+                            uris.distinct().mapNotNull { uri ->
+                                try {
+                                    require(uri.scheme == "content") { "Choose audio with the system file picker." }
+                                    copyLocalTrack(uri) { id -> written.add(id) }
+                                } catch (error: Exception) {
+                                    if (error is CancellationException) throw error
+                                    _error.value = "Couldn't import a file: ${error.readableMessage()}"
+                                    null
+                                }
+                            }
+                        }
+                        withContext(NonCancellable) {
+                            lock.withLock {
+                                val previousTracks = customTracks
+                                customTracks = (imported + customTracks).distinctBy(Track::id)
+                                downloadedIds.addAll(imported.map(Track::id))
+                                try {
+                                    saveLibrary()
+                                    registered = true
+                                    publishTracks()
+                                } catch (error: Exception) {
+                                    customTracks = previousTracks
+                                    downloadedIds.removeAll(written - previouslySaved)
+                                    throw error
+                                }
+                            }
+                        }
+                    } finally {
+                        withContext(NonCancellable + Dispatchers.IO) {
+                            if (!registered) written.filterNot { it in previouslySaved }.forEach { audioFile(it).delete() }
+                            written.forEach(audioStore::finishWrite)
                         }
                     }
                 }
-                lock.withLock {
-                    customTracks = (imported + customTracks).distinctBy(Track::id)
-                    downloadedIds.addAll(imported.map(Track::id))
-                    publishTracks()
-                    saveLibrary()
-                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _error.value = "Couldn't save the imported audio: ${error.readableMessage()}"
             }
         }
     }
@@ -225,14 +257,31 @@ class MusicRepository(
         }
         _downloads.update { it + (track.id to DownloadState(track.id)) }
         jobs[track.id] = scope.launch {
-            startup.await()
+            val finalizedFile = AtomicBoolean(false)
+            var registered = false
+            var writing = false
             try {
+                startup.await()
+                if (track.id in downloadedIds) {
+                    _downloads.update { it + (track.id to DownloadState(track.id, 1f, false)) }
+                    return@launch
+                }
+                audioStore.beginWrite(track.id)
+                writing = true
                 val spec = specifications[track.id]
-                withContext(Dispatchers.IO) { downloadFile(track, url, spec) }
-                lock.withLock {
-                    downloadedIds.add(track.id)
-                    publishTracks()
-                    saveLibrary()
+                withContext(Dispatchers.IO) { downloadFile(track, url, spec) { finalizedFile.set(true) } }
+                withContext(NonCancellable) {
+                    lock.withLock {
+                        downloadedIds.add(track.id)
+                        try {
+                            saveLibrary()
+                            registered = true
+                            publishTracks()
+                        } catch (error: Exception) {
+                            downloadedIds.remove(track.id)
+                            throw error
+                        }
+                    }
                 }
                 _downloads.update { it + (track.id to DownloadState(track.id, 1f, false)) }
             } catch (error: Exception) {
@@ -244,6 +293,10 @@ class MusicRepository(
                 _downloads.update { it + (track.id to DownloadState(track.id, isActive = false, error = message)) }
                 _error.value = message
             } finally {
+                if (finalizedFile.get() && !registered) {
+                    withContext(NonCancellable + Dispatchers.IO) { audioFile(track.id).delete() }
+                }
+                if (writing) audioStore.finishWrite(track.id)
                 calls.remove(track.id)
                 jobs.remove(track.id)
             }
@@ -281,14 +334,19 @@ class MusicRepository(
         cancelDownload(track.id)
         scope.launch {
             startup.await()
-            lock.withLock {
-                withContext(Dispatchers.IO) { audioFile(track.id).delete() }
-                downloadedIds.remove(track.id)
-                customTracks = customTracks.filterNot { it.id == track.id }
-                _favorites.update { it - track.id }
-                prefs.edit().putStringSet("favorites", _favorites.value).apply()
-                publishTracks()
-                saveLibrary()
+            try {
+                lock.withLock {
+                    withContext(Dispatchers.IO) { audioFile(track.id).delete() }
+                    downloadedIds.remove(track.id)
+                    customTracks = customTracks.filterNot { it.id == track.id }
+                    _favorites.update { it - track.id }
+                    prefs.edit().putStringSet("favorites", _favorites.value).apply()
+                    publishTracks()
+                    saveLibrary()
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _error.value = "Couldn't remove this track: ${error.readableMessage()}"
             }
         }
     }
@@ -299,7 +357,7 @@ class MusicRepository(
         scope.cancel()
     }
 
-    private suspend fun downloadFile(track: Track, url: String, spec: DownloadSpec?) {
+    private suspend fun downloadFile(track: Track, url: String, spec: DownloadSpec?, onPublished: () -> Unit) {
         audioDirectory.mkdirs()
         val target = audioFile(track.id)
         val temporary = File(audioDirectory, "${target.name}.part")
@@ -341,7 +399,9 @@ class MusicRepository(
                 if (spec?.sha256 != null && actualHash != spec.sha256) throw IOException("The audio checksum did not match. Try refreshing the catalogue.")
                 val header = temporary.inputStream().use { readAtMost(it, 16) }
                 if (!AudioUrlPolicy.looksLikeAudio(header)) throw IOException("This address is not a supported audio file. Use MP3, AAC, M4A, WAV, FLAC, or Ogg.")
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                onPublished()
             }
         } finally {
             temporary.delete()
@@ -349,7 +409,7 @@ class MusicRepository(
     }
 
     /** SAF may return a cloud document. Copy its bytes before promising offline availability. */
-    private suspend fun copyLocalTrack(uri: Uri): Track {
+    private suspend fun copyLocalTrack(uri: Uri, onPublished: (String) -> Unit): Track {
         val fallback = app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         } ?: "Local audio"
@@ -357,6 +417,8 @@ class MusicRepository(
         audioDirectory.mkdirs()
         val target = audioFile(id)
         val temporary = File(audioDirectory, "${target.name}.import.part")
+        audioStore.beginWrite(id)
+        var published = false
         try {
             var count = 0L
             val input = app.contentResolver.openInputStream(uri)
@@ -379,10 +441,14 @@ class MusicRepository(
             val header = temporary.inputStream().use { readAtMost(it, 16) }
             if (!AudioUrlPolicy.looksLikeAudio(header)) throw IOException("Choose an MP3, AAC, M4A, WAV, FLAC, or Ogg audio file.")
             val track = readLocalTrackMetadata(uri, temporary, fallback, id)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            published = true
+            onPublished(id)
             return track
         } finally {
             temporary.delete()
+            if (!published) audioStore.finishWrite(id)
         }
     }
 
@@ -456,14 +522,15 @@ class MusicRepository(
         }.toString()
         val savedDownloads = downloadedIds.toSet()
         withContext(Dispatchers.IO) {
-            prefs.edit().putString("customTracks", customJson)
+            val saved = prefs.edit().putString("customTracks", customJson)
                 .putString("catalogTracks", catalogJson)
                 .putString("downloadSpecs", specsJson)
                 .putStringSet("downloadedIds", savedDownloads).commit()
+            if (!saved) throw IOException("The library could not be saved to this device.")
         }
     }
 
-    private fun audioFile(id: String) = File(audioDirectory, "${digest(id.toByteArray())}.audio")
+    private fun audioFile(id: String) = audioStore.fileFor(id)
     private data class DownloadSpec(val sha256: String?, val sizeBytes: Long?)
 
     companion object {
