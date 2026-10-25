@@ -78,6 +78,35 @@ class SpotifyCatalogApiTest {
         assertTrue(refreshRequest.body.readUtf8().contains("grant_type=refresh_token"))
     }
 
+    @Test fun searchPaginatesUsingSupportedOffsetsAndNeverFollowsUntrustedNextUrl() = runBlocking {
+        val firstId = "1234567890123456789012"
+        val secondId = "2234567890123456789012"
+        apiServer.enqueue(MockResponse().setBody("""
+            {"tracks":{"items":[{"id":"$firstId","name":"First"}],"next":"https://attacker.invalid/trick"},
+             "albums":{"items":[],"next":null},"artists":{"items":[],"next":null}}
+        """.trimIndent()))
+        apiServer.enqueue(MockResponse().setBody("""
+            {"tracks":{"items":[{"id":"$secondId","name":"Second"}],"next":null},
+             "albums":{"items":[],"next":null},"artists":{"items":[],"next":null}}
+        """.trimIndent()))
+
+        val first = api.searchPage("test-access", "ambient", 0)
+        assertEquals(listOf(firstId), first.items.map { it.id })
+        assertTrue(first.hasMore)
+        val second = api.searchPage("test-access", "ambient", 10)
+        assertEquals(listOf(secondId), second.items.map { it.id })
+        assertFalse(second.hasMore)
+        val firstRequest = apiServer.takeRequest().requestUrl!!
+        val secondRequest = apiServer.takeRequest().requestUrl!!
+        assertNull(firstRequest.queryParameter("offset"))
+        assertEquals("10", secondRequest.queryParameter("offset"))
+        assertEquals("/v1/search", secondRequest.encodedPath)
+        assertEquals("ambient", secondRequest.queryParameter("q"))
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { api.searchPage("test-access", "ambient", -10) }
+        }
+    }
+
     @Test fun forbiddenAndRateLimitedResponsesRemainVisibleErrors() = runBlocking {
         apiServer.enqueue(MockResponse().setResponseCode(403).setBody("{}"))
         val forbidden = assertThrows(SpotifyCatalogHttpException::class.java) {

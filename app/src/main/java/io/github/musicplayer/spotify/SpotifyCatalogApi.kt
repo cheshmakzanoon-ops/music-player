@@ -19,6 +19,11 @@ data class SpotifyCatalogToken(
     val expiresAtMs: Long,
 )
 
+data class SpotifyCatalogPage(
+    val items: List<SpotifyCatalogItem>,
+    val hasMore: Boolean,
+)
+
 class SpotifyCatalogHttpException(val status: Int, val retryAfterSeconds: Int? = null) : IOException(
     when (status) {
         401 -> "Spotify authorization expired. Reconnect your catalogue."
@@ -71,26 +76,41 @@ class SpotifyCatalogApi(
         }
     }
 
-    suspend fun search(token: String, query: String): List<SpotifyCatalogItem> = withContext(Dispatchers.IO) {
+    /** Compatibility entrypoint for first-page callers and Web API fixture tests. */
+    suspend fun search(token: String, query: String): List<SpotifyCatalogItem> =
+        searchPage(token, query).items
+
+    /** Spotify's 2026 Search limit is 10 per type; explicit offsets reveal later pages. */
+    suspend fun searchPage(token: String, query: String, offset: Int = 0): SpotifyCatalogPage = withContext(Dispatchers.IO) {
+        require(offset in 0..1000 && offset % 10 == 0) { "Invalid Spotify search page offset." }
         val term = query.trim().take(200)
-        if (term.isBlank()) return@withContext emptyList()
-        val url = apiBase.newBuilder().addPathSegment("v1").addPathSegment("search")
+        if (term.isBlank()) return@withContext SpotifyCatalogPage(emptyList(), false)
+        val builder = apiBase.newBuilder().addPathSegment("v1").addPathSegment("search")
             .addQueryParameter("q", term)
             .addQueryParameter("type", "track,album,artist")
             .addQueryParameter("limit", "10") // Spotify's February 2026 maximum per type.
-            .build()
+        if (offset > 0) builder.addQueryParameter("offset", offset.toString())
+        val url = builder.build()
         val request = Request.Builder().url(url)
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json").build()
         http.newCall(request).execute().use { response ->
             val root = response.checkedJson()
-            buildList {
+            val items = buildList {
                 addAll(root.resultItems("tracks", SpotifyCatalogKind.TRACK))
                 addAll(root.resultItems("albums", SpotifyCatalogKind.ALBUM))
                 addAll(root.resultItems("artists", SpotifyCatalogKind.ARTIST))
             }
+            // Use Spotify's per-type pagination pointers as hints only. Never request
+            // an untrusted URL supplied by the response: generate the next offset here.
+            SpotifyCatalogPage(items, offset < 1000 && listOf("tracks", "albums", "artists")
+                .any { root.hasNext(it) })
         }
     }
+
+    private fun JsonObject.hasNext(collection: String): Boolean = runCatching {
+        getAsJsonObject(collection)?.get("next")?.takeUnless { it.isJsonNull }?.asString?.isNotBlank() == true
+    }.getOrDefault(false)
 
     private fun Response.checkedJson(): JsonObject {
         if (!isSuccessful) {

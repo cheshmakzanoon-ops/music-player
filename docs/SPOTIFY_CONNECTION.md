@@ -24,8 +24,12 @@ state; there is no fabricated successful connection or sample-track fallback.
 The Search screen has an optional **actual Spotify catalogue** section. After a
 user authorizes Spotify's Web API, searches return track, album and artist
 metadata from `GET /v1/search`, with Spotify-hosted artwork and direct Spotify
-links. A result plays through App Remote when that is connected; otherwise it
-opens in Spotify. Local searching and guest playback remain independent.
+links. Starting in v0.5.0, **Load more Spotify results** requests successive
+pages of each type (10 per type per request, Spotify's current development-mode
+maximum). Pagination is user-triggered, deduplicated and limited to documented
+search offsets; no untrusted `next` URL supplied by a server is followed.
+A result plays through App Remote when that is connected; otherwise it opens
+in Spotify. Local searching and guest playback remain independent.
 The player does not fetch Spotify audio, bypass licensing, or implement an
 independent Spotify download manager.
 
@@ -64,7 +68,8 @@ SDK redirect URI and registered signing fingerprint.
 The browser flow uses Authorization Code + PKCE (S256), a fresh random verifier
 and state, exact redirect/state validation, a two-minute loopback deadline and
 one-time code exchange. Searches are debounced and use Spotify's 2026 maximum
-of 10 items per type, with explicit 401/403/429 handling. The loopback listener
+of 10 items per type per page, with explicit 401/403/429 handling. Later
+pages are loaded only by user request. The loopback listener
 receives only the OAuth redirect; metadata comes directly from Spotify's
 `https://api.spotify.com` over HTTPS with the user's authorized token.
 

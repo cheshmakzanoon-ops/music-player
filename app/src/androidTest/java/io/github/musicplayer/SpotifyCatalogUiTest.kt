@@ -83,4 +83,28 @@ class SpotifyCatalogUiTest {
             assertEquals(item.uri, selected)
         }
     }
+
+    @Test fun catalogueNextPageIsExplicitAndCannotBeDoubleTappedWhileLoading() {
+        val id = "1234567890123456789012"
+        var requests = 0
+        var catalog by mutableStateOf(SpotifyCatalogState(
+            configured = true, authorized = true, query = "night", hasMore = true,
+            results = listOf(SpotifyCatalogItem(id, SpotifyCatalogKind.TRACK, "Night Signal", "Arc Waves", null, 100_000)),
+        ))
+        compose.setContent {
+            MusicPlayerApp(
+                state = PlayerUiState(spotifyCatalog = catalog),
+                actions = PlayerActions(onLoadMoreSpotifyCatalog = {
+                    requests++
+                    catalog = catalog.copy(loadingMore = true)
+                }),
+            )
+        }
+        compose.onNodeWithTag("nav_search").performClick()
+        compose.onNodeWithTag("search_input").performTextInput("night")
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_catalog_load_more"))
+        compose.onNodeWithTag("spotify_catalog_load_more").assertIsEnabled().performClick()
+        assertEquals(1, requests)
+        compose.onNodeWithTag("spotify_catalog_load_more").assertIsNotEnabled()
+    }
 }

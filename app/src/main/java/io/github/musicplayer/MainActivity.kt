@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
                     onSetSpotifyCatalogClientId = { model.spotifyCatalog.setClientId(it) },
                     onResetSpotifyCatalogClientId = { model.spotifyCatalog.resetClientId() },
                     onSearchSpotifyCatalog = model.spotifyCatalog::search,
+                    onLoadMoreSpotifyCatalog = model.spotifyCatalog::loadMore,
                     onSelectSpotifyResult = { item ->
                         if (spotify.connected) {
                             model.player.pause()

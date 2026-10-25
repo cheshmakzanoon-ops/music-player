@@ -342,7 +342,7 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
                             Text("Searching Spotify…", color = Muted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    spotify.error == null && spotify.results.isEmpty() -> Text("No Spotify results for this search.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    spotify.error == null && spotify.results.isEmpty() && !spotify.hasMore -> Text("No Spotify results for this search.", color = Muted, style = MaterialTheme.typography.bodySmall)
                     else -> Text("${spotify.results.size} catalogue results · track / album / artist", color = Muted, style = MaterialTheme.typography.bodySmall)
                 }
                 if (spotify.configured) {
@@ -354,6 +354,20 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
         if (spotify.authorized && query.isNotBlank()) {
             items(spotify.results, key = { "spotify_${it.kind.apiName}_${it.id}" }) { item ->
                 SpotifyCatalogRow(item, state, actions)
+            }
+            if (spotify.hasMore || spotify.loadingMore) {
+                item {
+                    OutlinedButton(
+                        onClick = actions.onLoadMoreSpotifyCatalog,
+                        enabled = !spotify.loadingMore,
+                        shape = CyberSmall,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 13.dp)
+                            .testTag("spotify_catalog_load_more"),
+                    ) {
+                        if (spotify.loadingMore) CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp, color = Cyan)
+                        Text(if (spotify.loadingMore) " Loading more…" else "Load more Spotify results")
+                    }
+                }
             }
         }
         item { SectionHeading(if (query.isBlank()) "Your sound collection" else "On this device", "${results.size} LOCAL TRACK${if (results.size == 1) "" else "S"}") }

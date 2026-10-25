@@ -22,6 +22,8 @@ data class SpotifyCatalogState(
     val authorized: Boolean = false,
     val authorizing: Boolean = false,
     val loading: Boolean = false,
+    val loadingMore: Boolean = false,
+    val hasMore: Boolean = false,
     val query: String = "",
     val results: List<SpotifyCatalogItem> = emptyList(),
     val error: String? = null,
@@ -45,6 +47,8 @@ class SpotifyCatalogController(
     private var credential: SpotifyCatalogToken? = null
     private var authJob: Job? = null
     private var searchJob: Job? = null
+    private var loadMoreJob: Job? = null
+    private var nextOffset = 0
     private var listener: SpotifyLoopbackRedirect? = null
     private var generation = 0
     private var closed = false
@@ -100,6 +104,7 @@ class SpotifyCatalogController(
             generation++
             authJob?.cancel()
             searchJob?.cancel()
+            loadMoreJob?.cancel()
             listener?.close()
             listener = null
             clearCredentials()
@@ -155,23 +160,20 @@ class SpotifyCatalogController(
         val query = text.trim().take(200)
         if (query == _state.value.query && _state.value.results.isNotEmpty()) return
         searchJob?.cancel()
-        _state.update { it.copy(query = query, results = emptyList(), loading = it.authorized && query.isNotBlank(), error = null) }
+        loadMoreJob?.cancel()
+        nextOffset = 0
+        _state.update { it.copy(query = query, results = emptyList(), loading = it.authorized && query.isNotBlank(),
+            loadingMore = false, hasMore = false, error = null) }
         if (query.isBlank() || !_state.value.authorized) return
         val epoch = generation
         searchJob = scope.launch {
             try {
                 delay(450)
-                val access = validAccessToken()
-                val results = try {
-                    api.search(access, query)
-                } catch (failure: SpotifyCatalogHttpException) {
-                    if (failure.status != 401) throw failure
-                    // A server can revoke a token before its advertised expiry.
-                    val refreshed = refreshToken(force = true)
-                    api.search(refreshed, query)
-                }
+                val page = searchPageWithAuthorization(query, offset = 0)
                 if (!closed && generation == epoch) {
-                    _state.update { it.copy(results = results, loading = false, error = null) }
+                    nextOffset = 10
+                    _state.update { it.copy(results = page.items, hasMore = page.hasMore,
+                        loading = false, error = null) }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -183,6 +185,53 @@ class SpotifyCatalogController(
                     _state.update { it.copy(loading = false, error = failure.message ?: "Spotify search failed.") }
                 }
             }
+        }
+    }
+
+    /** Fetch more metadata only after the user explicitly requests it. */
+    fun loadMore() {
+        if (closed) return
+        val current = _state.value
+        if (!current.authorized || current.loading || current.loadingMore || !current.hasMore || current.query.isBlank()) return
+        if (nextOffset !in 10..1000) return
+        val query = current.query
+        val offset = nextOffset
+        val epoch = generation
+        _state.update { it.copy(loadingMore = true, error = null) }
+        loadMoreJob = scope.launch {
+            try {
+                val page = searchPageWithAuthorization(query, offset)
+                if (!closed && generation == epoch && _state.value.query == query && nextOffset == offset) {
+                    nextOffset = offset + 10
+                    _state.update { state ->
+                        state.copy(
+                            results = (state.results + page.items).distinctBy { it.kind to it.id },
+                            hasMore = page.hasMore && nextOffset <= 1000,
+                            loadingMore = false, error = null,
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (!closed && generation == epoch && _state.value.query == query) {
+                    if (failure is SpotifyCatalogHttpException && failure.status == 401) clearCredentials()
+                    _state.update { it.copy(loadingMore = false,
+                        error = failure.message ?: "Could not load more Spotify results.") }
+                }
+            }
+        }
+    }
+
+    private suspend fun searchPageWithAuthorization(query: String, offset: Int): SpotifyCatalogPage {
+        val access = validAccessToken()
+        return try {
+            api.searchPage(access, query, offset)
+        } catch (failure: SpotifyCatalogHttpException) {
+            if (failure.status != 401) throw failure
+            // A server can revoke a token before its advertised expiry.
+            val refreshed = refreshToken(force = true)
+            api.searchPage(refreshed, query, offset)
         }
     }
 
@@ -209,6 +258,7 @@ class SpotifyCatalogController(
         listener?.close()
         listener = null
         searchJob?.cancel()
+        loadMoreJob?.cancel()
         clearCredentials()
         _state.value = initialState()
     }
@@ -217,7 +267,8 @@ class SpotifyCatalogController(
         credential = null
         // Synchronous delete prevents a revoked session from being revived after recreation.
         store.clear()
-        _state.update { it.copy(authorized = false, results = emptyList()) }
+        nextOffset = 0
+        _state.update { it.copy(authorized = false, results = emptyList(), hasMore = false, loadingMore = false) }
     }
 
     override fun close() {
