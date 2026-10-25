@@ -9,3 +9,5 @@ analysis/
 captures/
 ci-artifacts/
 .kotlin/
+__pycache__/
+ci-apks/
