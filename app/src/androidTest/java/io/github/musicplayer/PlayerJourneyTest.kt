@@ -184,6 +184,32 @@ class PlayerJourneyTest {
         }
     }
 
+    @Test
+    fun optionalSpotifyConnectionDoesNotBlockTheLocalLibrary() {
+        compose.onNodeWithTag("nav_library").performClick()
+        compose.onNodeWithTag("settings").performClick()
+        compose.onNodeWithTag("settings_spotify").performScrollTo().performClick()
+        compose.onNodeWithTag("spotify_panel").assertIsDisplayed()
+        val spotify = model.spotify.state.value
+        assertFalse(spotify.connected)
+        compose.onNodeWithTag("spotify_connect").performScrollTo().assertIsDisplayed()
+        if (!spotify.configReady || !spotify.installed) {
+            compose.onNodeWithTag("spotify_connect").assertIsNotEnabled()
+        } else {
+            compose.onNodeWithTag("spotify_connect").assertIsEnabled()
+        }
+        if (!spotify.configReady) {
+            compose.onNodeWithTag("spotify_not_configured").assertExists()
+        }
+        compose.onNodeWithTag("spotify_connection_state").performScrollTo()
+        screenshot("10-spotify-connection")
+        compose.onNodeWithTag("close_spotify").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("spotify_panel").assertDoesNotExist()
+        compose.onNodeWithTag("library_screen").assertExists()
+        compose.onNodeWithTag("library_screen").performScrollToNode(hasTestTag("track_first-light"))
+        compose.onNodeWithTag("track_first-light").assertIsDisplayed()
+    }
+
     private fun setFontScale(scale: Float) {
         val command = "settings put system font_scale $scale"
         val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)

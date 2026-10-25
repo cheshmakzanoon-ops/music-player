@@ -2,9 +2,14 @@
 
 [![Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml/badge.svg)](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
 
-An original Android music player with an animated charcoal-and-lime interface, real
-background playback, a persistent library, and verified offline downloads for
-permitted audio. It opens directly: no app account, signup, or country setup.
+An original Android music player with a **NIGHT SHIFT** cyberpunk interface:
+blue-black surfaces, acid-yellow controls, cyan details, original animated neon
+artwork, real background playback and a persistent offline library. It opens
+directly: **no app account, Google signup, or country setup**.
+
+The optional **Spotify connection** uses Spotify's official App Remote SDK to
+control its existing app and service. It requires a registered Spotify developer
+application and user authorization. [Configuration and verification scope](docs/SPOTIFY_CONNECTION.md).
 
 ## What is in this repository
 
@@ -13,11 +18,14 @@ permitted audio. It opens directly: no app account, signup, or country setup.
 | `app/` | Original Kotlin/Jetpack Compose application, package `io.github.musicplayer`. |
 | `catalog/` | Six original procedural studio samples, their HTTPS URLs, checksums, and download permissions. |
 | `docs/APK_ANALYSIS.md` | Evidence from static inspection of the supplied reference client. |
+| `docs/SPOTIFY_CONNECTION.md` | Supported Spotify integration, configuration and verification limits. |
+| `app/libs/` | Published Spotify App Remote SDK with upstream license, notices and checksum. |
 | `reference/` | Unchanged uploaded reference APK, stored with Git LFS. Not included in the new app or its build. |
 | `.github/workflows/android.yml` | Build, lint, unit tests, Android emulator tests, APKs, and screenshot artifacts. |
 
 The reference identifies as **Spotify 9.1.78.2215 wrapped with LSPatch**. The rebuild
-does not incorporate Spotify's code, artwork, patch modules, or signing identity.
+does not reuse that APK's code, artwork, patch modules, or signing identity. The
+official SDK dependency is downloaded separately from Spotify's published release.
 See the [analysis report](docs/APK_ANALYSIS.md) and [machine-readable inventory](docs/analysis-metadata.json).
 
 ## Listening
@@ -33,6 +41,9 @@ See the [analysis report](docs/APK_ANALYSIS.md) and [machine-readable inventory]
   of failed transfers. Completed files remain playable when the server is unavailable.
 - **Accessibility:** labelled controls, scalable text, system insets, and a persistent
   reduced-motion setting.
+- **Spotify connection:** current-track metadata and artwork, play/pause, content-link
+  playback, next/previous, seek, shuffle and repeat through the official app. Controls
+  respect Spotify's reported account capabilities and playback restrictions.
 
 First light is bundled so first launch and playback work offline. The other original
 samples stream over HTTPS and can be saved. [Sample provenance](catalog/README.md).
@@ -40,17 +51,19 @@ Local imports and favorites stay on the device; no analytics or account service 
 
 ### Spotify integration boundary
 
-**This is not an anonymous Spotify client or a mirror of its catalogue.** The Spotify
-button opens the official service, where Spotify handles login, availability, playback,
-and offline entitlements. The new player has not gained direct access to Spotify's
-full catalogue. Spotify's server implementation is not contained in its APK.
+**Spotify connection is optional and requires Spotify authorization.** It provides
+an original control surface for the official Spotify app, which retains its login,
+backend connection, playback, availability and offline entitlements. Public catalogue
+search opens Spotify; the player's local search covers its own collection.
 
 Spotify's [supported Android SDK](https://developer.spotify.com/documentation/android)
 requires authorization and controls the Spotify app. Removing a client-side signup
 screen cannot remove server-side authentication, regional content rules, or download
-restrictions. A deeper supported integration would require a registered Spotify
-developer application and the appropriate user authorization. No embedded credentials,
-private-endpoint workarounds, DRM changes, or geographic bypasses are used here.
+restrictions. Set the public `SPOTIFY_CLIENT_ID` and `SPOTIFY_REDIRECT_URI` Actions
+variables and register the APK's signing fingerprint to configure the integration.
+No identifiers were supplied for this implementation, so the default build clearly
+shows that Spotify is not configured. Authenticated Spotify playback has not been
+verified. See the [setup instructions](docs/SPOTIFY_CONNECTION.md).
 
 ## Build
 
@@ -80,7 +93,9 @@ GitHub Actions builds the app, runs JVM tests and Android lint, then installs th
 app and instrumentation APKs on **API 26 and API 35 x86-64 Android emulators**.
 The tests cover navigation, search/empty results, real playback/seek, favorites,
 queue restoration, background playback, source validation, HTTPS streaming,
-verified downloads, restart persistence, offline decoding, and failure cleanup.
+verified downloads, restart persistence, offline decoding, failure cleanup,
+large-font reachability and the optional Spotify connection screen. JVM tests
+also validate accepted Spotify share links and reject malformed configuration.
 
 Network/download tests use a real local HTTPS server with a test certificate. The
 offline test shuts that server down before reopening the library and playing the

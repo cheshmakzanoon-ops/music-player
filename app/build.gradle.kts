@@ -4,6 +4,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Public Spotify application identifiers only. Never embed a client secret.
+fun buildConfigString(value: String): String = "\"" + value
+    .replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+val spotifyClientId = providers.gradleProperty("spotifyClientId")
+    .orElse(providers.environmentVariable("SPOTIFY_CLIENT_ID")).orElse("")
+val spotifyRedirectUri = providers.gradleProperty("spotifyRedirectUri")
+    .orElse(providers.environmentVariable("SPOTIFY_REDIRECT_URI")).orElse("")
+
 android {
     namespace = "io.github.musicplayer"
     compileSdk = 35
@@ -12,8 +20,10 @@ android {
         applicationId = "io.github.musicplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", buildConfigString(spotifyClientId.get()))
+        buildConfigField("String", "SPOTIFY_REDIRECT_URI", buildConfigString(spotifyRedirectUri.get()))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
@@ -60,6 +70,8 @@ dependencies {
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation("com.google.code.gson:gson:2.11.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

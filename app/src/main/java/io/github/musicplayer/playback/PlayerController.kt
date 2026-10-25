@@ -111,6 +111,13 @@ class PlayerController(context: Context) : AutoCloseable {
         publish()
     }
 
+    /** Pause for a different playback provider without toggling a stopped player on. */
+    fun pause() {
+        pendingPlay = null
+        controller?.pause()
+        publish()
+    }
+
     fun seekTo(positionMs: Long) {
         controller?.let { player ->
             val max = player.duration.takeIf { it > 0 && it != C.TIME_UNSET } ?: Long.MAX_VALUE

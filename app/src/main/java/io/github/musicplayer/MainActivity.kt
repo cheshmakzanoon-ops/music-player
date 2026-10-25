@@ -10,18 +10,34 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.musicplayer.ui.MusicPlayerApp
 import io.github.musicplayer.ui.PlayerActions
 import io.github.musicplayer.ui.PlayerUiState
+import io.github.musicplayer.ui.SpotifyPanel
 
 class MainActivity : ComponentActivity() {
+    private val model: MusicViewModel by lazy { ViewModelProvider(this)[MusicViewModel::class.java] }
+
+    override fun onStart() {
+        super.onStart()
+        model.spotify.onForeground(this)
+    }
+
+    override fun onStop() {
+        model.spotify.onBackground()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val model: MusicViewModel = viewModel()
+            var spotifyPanel by rememberSaveable { mutableStateOf(false) }
             val tracks by model.repository.tracks.collectAsStateWithLifecycle()
             val favorites by model.repository.favorites.collectAsStateWithLifecycle()
             val downloads by model.repository.downloads.collectAsStateWithLifecycle()
@@ -30,6 +46,7 @@ class MainActivity : ComponentActivity() {
             val playback by model.player.state.collectAsStateWithLifecycle()
             val reduceMotion by model.reduceMotion.collectAsStateWithLifecycle()
             val message by model.message.collectAsStateWithLifecycle()
+            val spotify by model.spotify.state.collectAsStateWithLifecycle()
             val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                 uris.forEach { uri ->
                     try {
@@ -52,8 +69,14 @@ class MainActivity : ComponentActivity() {
                     reduceMotion = reduceMotion,
                 ),
                 actions = PlayerActions(
-                    onPlay = model.player::play,
-                    onTogglePlay = model.player::togglePlay,
+                    onPlay = { track, queue ->
+                        model.spotify.pause()
+                        model.player.play(track, queue)
+                    },
+                    onTogglePlay = {
+                        if (!playback.isPlaying) model.spotify.pause()
+                        model.player.togglePlay()
+                    },
                     onNext = model.player::next,
                     onPrevious = model.player::previous,
                     onSeek = model.player::seekTo,
@@ -65,11 +88,38 @@ class MainActivity : ComponentActivity() {
                     onImportAudio = { filePicker.launch(arrayOf("audio/*")) },
                     onAddStream = { title, url -> model.repository.addStream(title, url, downloadAllowed = true) },
                     onRefreshCatalog = model.repository::refreshCatalog,
-                    onOpenSpotify = { query -> openSpotify(query, model) },
+                    onOpenSpotify = { query ->
+                        if (query.isBlank()) spotifyPanel = true else openSpotify(query, model)
+                    },
                     onReduceMotion = model::setReduceMotion,
                     onDismissMessage = model::dismissMessage,
                 ),
             )
+            if (spotifyPanel) {
+                SpotifyPanel(
+                    state = spotify,
+                    onClose = { spotifyPanel = false },
+                    onConnect = {
+                        model.player.pause()
+                        model.spotify.connect(this)
+                    },
+                    onDisconnect = model.spotify::disconnect,
+                    onOpenSpotify = { openSpotify("", model) },
+                    onPlayContent = { input ->
+                        model.player.pause()
+                        model.spotify.play(input)
+                    },
+                    onTogglePlay = {
+                        if (!spotify.isPlaying) model.player.pause()
+                        model.spotify.togglePlay()
+                    },
+                    onNext = model.spotify::next,
+                    onPrevious = model.spotify::previous,
+                    onSeek = model.spotify::seekTo,
+                    onShuffle = model.spotify::toggleShuffle,
+                    onRepeat = model.spotify::toggleRepeat,
+                )
+            }
         }
     }
 
