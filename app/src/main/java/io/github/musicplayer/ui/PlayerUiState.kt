@@ -3,6 +3,8 @@ package io.github.musicplayer.ui
 import io.github.musicplayer.model.DownloadState
 import io.github.musicplayer.model.PlaybackState
 import io.github.musicplayer.model.Track
+import io.github.musicplayer.spotify.SpotifyCatalogItem
+import io.github.musicplayer.spotify.SpotifyCatalogState
 
 data class PlayerUiState(
     val tracks: List<Track> = emptyList(),
@@ -12,6 +14,7 @@ data class PlayerUiState(
     val catalogLoading: Boolean = false,
     val message: String? = null,
     val reduceMotion: Boolean = false,
+    val spotifyCatalog: SpotifyCatalogState = SpotifyCatalogState(),
 )
 
 data class PlayerActions(
@@ -29,6 +32,10 @@ data class PlayerActions(
     val onAddStream: (String, String) -> Unit = { _, _ -> },
     val onRefreshCatalog: () -> Unit = {},
     val onOpenSpotify: (String) -> Unit = {},
+    val onAuthorizeSpotifyCatalog: () -> Unit = {},
+    val onDisconnectSpotifyCatalog: () -> Unit = {},
+    val onSearchSpotifyCatalog: (String) -> Unit = {},
+    val onSelectSpotifyResult: (SpotifyCatalogItem) -> Unit = {},
     val onReduceMotion: (Boolean) -> Unit = {},
     val onDismissMessage: () -> Unit = {},
 )

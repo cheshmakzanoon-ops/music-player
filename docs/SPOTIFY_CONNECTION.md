@@ -21,18 +21,50 @@ Spotify reports that the user can play on demand. A missing app, missing build
 configuration, denied authorization or connection failure produces an explicit
 state; there is no fabricated successful connection or sample-track fallback.
 
-Spotify catalogue search continues to open the official service. The local
-search screen searches the collection on this device. The App Remote panel does
-not claim to expose the full Spotify queue, catalogue, recommendations or an
+The Search screen has an optional **actual Spotify catalogue** section. After a
+user authorizes Spotify's Web API, searches return track, album and artist
+metadata from `GET /v1/search`, with Spotify-hosted artwork and direct Spotify
+links. A result plays through App Remote when that is connected; otherwise it
+opens in Spotify. Local searching and guest playback remain independent.
+The player does not fetch Spotify audio, bypass licensing, or implement an
 independent Spotify download manager.
 
-## Configure your registered Spotify application
+## Configure Web API catalogue search
 
-1. Register an Android application in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+1. Create an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+   Development Mode requires the developer to have active Spotify Premium and
+   allows **at most five allowlisted users**. See the [current quota rules](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
+2. Add **`http://127.0.0.1/callback`** (no port) to the Spotify app's Redirect
+   URIs. Spotify explicitly permits changing the port on a loopback IP literal
+   for each authorization. NIGHT SHIFT starts a temporary listener on a randomly
+   assigned local port and supplies that complete URL to Spotify.
+3. Set the public `SPOTIFY_CLIENT_ID` [Actions variable](https://github.com/cheshmakzanoon-ops/music-player/settings/variables/actions).
+   **Never embed a client secret.** Catalogue search needs neither an external
+   callback server nor the Spotify Android app. App Remote playback controls
+   require separate configuration below.
+4. Install a configured APK, open **Search → Connect Spotify catalogue** (or
+   Settings → Spotify connection → Connect catalogue), and authorize in the
+   browser. Return to NIGHT SHIFT and search for tracks, albums and artists.
+5. Access and refresh tokens are encrypted with an Android Keystore AES-GCM key
+   in private app storage. **Disconnect catalogue** deletes those credentials.
+   No app-specific account, Google signup, client secret or Spotify password is
+   required by NIGHT SHIFT.
+
+The browser flow uses Authorization Code + PKCE (S256), a fresh random verifier
+and state, exact redirect/state validation, a two-minute loopback deadline and
+one-time code exchange. Searches are debounced and use Spotify's 2026 maximum
+of 10 items per type, with explicit 401/403/429 handling. The loopback listener
+receives only the OAuth redirect; metadata comes directly from Spotify's
+`https://api.spotify.com` over HTTPS with the user's authorized token.
+
+## Configure App Remote playback controls
+
+1. Use the registered application in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Register package **`io.github.musicplayer`** and an HTTPS redirect URI you
    control. Use the exact same redirect value below.
 3. Add repository [**Actions variables**](https://github.com/cheshmakzanoon-ops/music-player/settings/variables/actions) named `SPOTIFY_CLIENT_ID` and
-   `SPOTIFY_REDIRECT_URI`. These are public application identifiers, not secrets.
+   `SPOTIFY_REDIRECT_URI`. These are public application identifiers, not secrets;
+   this separate HTTPS redirect configures the App Remote SDK.
    The workflow already passes them to Gradle. **Do not provide or embed a client
    secret.**
 4. Run [Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
@@ -83,17 +115,22 @@ unaffected. No production identifiers were supplied for this implementation.
   playback pauses the local player. No private service endpoints are called.
 - Spotify track art comes from the supported Images API and is displayed intact.
   It is not bundled as original artwork or used in the local audio catalogue.
-- The app does not store Spotify passwords, OAuth tokens, or a client secret.
+- The app does not store Spotify passwords or a client secret. It **does** store
+  catalogue OAuth access/refresh tokens, encrypted with Android Keystore, when
+  the user authorizes catalogue access. App Remote continues to delegate its
+  account/session to the official Spotify app.
 - Content input accepts recognized Spotify URI forms and HTTPS links on exactly
   `open.spotify.com`; unrelated URLs, userinfo and alternate ports are rejected.
 
 ## Verification scope
 
-JVM tests cover application configuration and content-link validation. Android
+JVM tests cover PKCE state/redirects, an actual loopback listener, mocked
+Spotify Web API search/token exchange, HTTP errors, configuration and link
+validation. Android
 emulator tests cover account-free launch, the optional connection screen, its
 unavailable-service state, returning to the local library, and the local player's
 real audio/download journeys. Those tests do **not** prove an authenticated
-Spotify session or catalogue playback.
+live Spotify session, live catalogue search or catalogue playback.
 
 Authenticated end-to-end verification requires your registered app identifiers,
 the matching signing fingerprint, the official Spotify app and a user who
@@ -103,6 +140,9 @@ continue to be determined by Spotify.
 
 ## Primary references
 
+- [Web API search](https://developer.spotify.com/documentation/web-api/reference/search)
+- [Authorization Code with PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow)
+- [Development-mode quota limits](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 - [Spotify Android SDK overview](https://developer.spotify.com/documentation/android)
 - [Getting started: app registration and authorization](https://developer.spotify.com/documentation/android/tutorials/getting-started)
 - [Application lifecycle](https://developer.spotify.com/documentation/android/tutorials/application-lifecycle)

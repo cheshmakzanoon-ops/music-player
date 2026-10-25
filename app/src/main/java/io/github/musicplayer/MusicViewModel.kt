@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import io.github.musicplayer.data.MusicRepository
 import io.github.musicplayer.playback.PlayerController
+import io.github.musicplayer.spotify.SpotifyCatalogController
 import io.github.musicplayer.spotify.SpotifyConfiguration
 import io.github.musicplayer.spotify.SpotifyRemoteController
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         clientId = BuildConfig.SPOTIFY_CLIENT_ID,
         redirectUri = BuildConfig.SPOTIFY_REDIRECT_URI,
     ))
+    val spotifyCatalog = SpotifyCatalogController(application, BuildConfig.SPOTIFY_CLIENT_ID)
     private val preferences = application.getSharedPreferences("appearance", 0)
     private val _reduceMotion = MutableStateFlow(preferences.getBoolean("reduce_motion", false))
     val reduceMotion = _reduceMotion.asStateFlow()
@@ -41,6 +43,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         player.close()
         spotify.close()
+        spotifyCatalog.close()
         repository.close()
         super.onCleared()
     }

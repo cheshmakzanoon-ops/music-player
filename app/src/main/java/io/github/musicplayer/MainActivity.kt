@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
             val reduceMotion by model.reduceMotion.collectAsStateWithLifecycle()
             val message by model.message.collectAsStateWithLifecycle()
             val spotify by model.spotify.state.collectAsStateWithLifecycle()
+            val spotifyCatalog by model.spotifyCatalog.state.collectAsStateWithLifecycle()
             val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                 uris.forEach { uri ->
                     try {
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     catalogLoading = loading || !libraryReady,
                     message = message ?: repositoryError ?: playback.error,
                     reduceMotion = reduceMotion,
+                    spotifyCatalog = spotifyCatalog,
                 ),
                 actions = PlayerActions(
                     onPlay = { track, queue ->
@@ -96,6 +98,17 @@ class MainActivity : ComponentActivity() {
                     onOpenSpotify = { query ->
                         if (query.isBlank()) spotifyPanel = true else openSpotify(query, model)
                     },
+                    onAuthorizeSpotifyCatalog = { authorizeSpotifyCatalog(model) },
+                    onDisconnectSpotifyCatalog = model.spotifyCatalog::disconnect,
+                    onSearchSpotifyCatalog = model.spotifyCatalog::search,
+                    onSelectSpotifyResult = { item ->
+                        if (spotify.connected) {
+                            model.player.pause()
+                            model.spotify.play(item.uri)
+                        } else {
+                            openSpotifyResult(item.spotifyUrl, model)
+                        }
+                    },
                     onReduceMotion = model::setReduceMotion,
                     onDismissMessage = model::dismissMessage,
                 ),
@@ -103,12 +116,15 @@ class MainActivity : ComponentActivity() {
             if (spotifyPanel) {
                 SpotifyPanel(
                     state = spotify,
+                    catalog = spotifyCatalog,
                     onClose = { spotifyPanel = false },
                     onConnect = {
                         model.player.pause()
                         model.spotify.connect(this)
                     },
                     onDisconnect = model.spotify::disconnect,
+                    onAuthorizeCatalog = { authorizeSpotifyCatalog(model) },
+                    onDisconnectCatalog = model.spotifyCatalog::disconnect,
                     onOpenSpotify = { openSpotify("", model) },
                     onPlayContent = { input ->
                         model.player.pause()
@@ -135,6 +151,20 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (_: ActivityNotFoundException) {
             model.showMessage("Install Spotify or a browser to open Spotify links.")
+        }
+    }
+
+    private fun openSpotifyResult(url: String, model: MusicViewModel) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            model.showMessage("Install Spotify or a browser to open this Spotify result.")
+        }
+    }
+
+    private fun authorizeSpotifyCatalog(model: MusicViewModel) {
+        model.spotifyCatalog.authorize { url ->
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
     }
 }

@@ -7,9 +7,11 @@ blue-black surfaces, acid-yellow controls, cyan details, original animated neon
 artwork, real background playback and a persistent offline library. It opens
 directly: **no app account, Google signup, or country setup**.
 
-The optional **Spotify connection** uses Spotify's official App Remote SDK to
-control its existing app and service. It requires a registered Spotify developer
-application and user authorization. [Configuration and verification scope](docs/SPOTIFY_CONNECTION.md).
+The optional **Spotify catalogue connection** searches actual tracks, albums
+and artists through Spotify's Web API inside NIGHT SHIFT, with user-approved
+PKCE authorization. Its separate App Remote integration controls playback
+through the official Spotify app. Both require a registered Spotify developer
+application; the local library needs neither. [Configuration](docs/SPOTIFY_CONNECTION.md).
 
 ## Preview
 
@@ -44,7 +46,8 @@ See the [analysis report](docs/APK_ANALYSIS.md) and [machine-readable inventory]
 ## Listening
 
 - **Discover:** animated original artwork and a studio-sample collection.
-- **Search:** filter your available tracks by title, artist, album, or source.
+- **Search:** filter your available tracks, and optionally search Spotify's
+  real tracks, albums and artists with original artwork and Spotify links.
 - **Player:** real play/pause, previous/next, seeking, queue, shuffle, repeat, media
   notification, audio focus, headset-disconnect handling, and background playback.
 - **Library:** persistent favorites, local imports through Android's file picker,
@@ -54,7 +57,8 @@ See the [analysis report](docs/APK_ANALYSIS.md) and [machine-readable inventory]
   of failed transfers. Completed files remain playable when the server is unavailable.
 - **Accessibility:** labelled controls, scalable text, system insets, and a persistent
   reduced-motion setting.
-- **Spotify connection:** current-track metadata and artwork, play/pause, content-link
+- **Spotify connection:** Spotify Web API metadata search with PKCE authorization,
+  plus current-track metadata and artwork, play/pause, content-link
   playback, next/previous, seek, shuffle and repeat through the official app. Controls
   respect Spotify's reported account capabilities and playback restrictions.
 
@@ -64,19 +68,23 @@ Local imports and favorites stay on the device; no analytics or account service 
 
 ### Spotify integration boundary
 
-**Spotify connection is optional and requires Spotify authorization.** It provides
-an original control surface for the official Spotify app, which retains its login,
-backend connection, playback, availability and offline entitlements. Public catalogue
-search opens Spotify; the player's local search covers its own collection.
+**Spotify connection is optional and requires Spotify authorization.** The
+catalogue search is an actual Web API integration, independent of the local
+library. Its separate original control surface uses the official Spotify app,
+which retains its login, backend audio connection, playback, regional
+availability and offline entitlements.
 
 Spotify's [supported Android SDK](https://developer.spotify.com/documentation/android)
 requires authorization and controls the Spotify app. Removing a client-side signup
 screen cannot remove server-side authentication, regional content rules, or download
-restrictions. Set the public `SPOTIFY_CLIENT_ID` and `SPOTIFY_REDIRECT_URI` Actions
-variables and register the APK's signing fingerprint to configure the integration.
-No identifiers were supplied for this implementation, so the default build clearly
-shows that Spotify is not configured. Authenticated Spotify playback has not been
-verified. See the [setup instructions](docs/SPOTIFY_CONNECTION.md).
+restrictions. Set public `SPOTIFY_CLIENT_ID` and register the browser callback
+`http://127.0.0.1/callback` to enable the catalogue. Separately,
+`SPOTIFY_REDIRECT_URI` and a matching APK signing fingerprint enable App Remote.
+No identifiers were supplied, so the default build shows that Spotify is not
+configured. Authenticated live catalogue search and playback have not yet been
+verified. Spotify's development-mode Web API is currently limited to five
+allowlisted users and requires the developer's Premium account. See the
+[setup instructions](docs/SPOTIFY_CONNECTION.md).
 
 ## Install an Actions build
 

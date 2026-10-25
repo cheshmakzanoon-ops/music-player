@@ -29,15 +29,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.musicplayer.spotify.SpotifyContentUri
+import io.github.musicplayer.spotify.SpotifyCatalogState
 import io.github.musicplayer.spotify.SpotifyRemoteState
 
 /** A separate source: Spotify's official client owns its audio, account and availability. */
 @Composable
 fun SpotifyPanel(
     state: SpotifyRemoteState,
+    catalog: SpotifyCatalogState,
     onClose: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onAuthorizeCatalog: () -> Unit,
+    onDisconnectCatalog: () -> Unit,
     onOpenSpotify: () -> Unit,
     onPlayContent: (String) -> Unit,
     onTogglePlay: () -> Unit,
@@ -136,6 +140,27 @@ fun SpotifyPanel(
                         state.error?.let {
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().testTag("spotify_error"))
                         }
+                        Column(
+                            Modifier.fillMaxWidth().clip(CyberPanel).background(Panel)
+                                .border(1.dp, Cyan.copy(.4f), CyberPanel).padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text("CATALOGUE / SPOTIFY WEB API", color = Cyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                            Text("Explore Spotify tracks, albums and artists inside Search.", color = Milk, style = MaterialTheme.typography.bodyMedium)
+                            Text("Independent of player controls. Spotify authorization is optional, and your local collection never requires it.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            when {
+                                !catalog.configured -> Text("Add a public Spotify client ID to this build to enable catalogue search.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_panel_unconfigured"))
+                                !catalog.authorized -> Button(
+                                    onClick = onAuthorizeCatalog, enabled = !catalog.authorizing, shape = CyberSmall,
+                                    modifier = Modifier.fillMaxWidth().testTag("spotify_catalog_panel_connect"),
+                                ) { Text(if (catalog.authorizing) "Waiting for authorization…" else "Connect catalogue") }
+                                else -> {
+                                    Text("CATALOGUE CONNECTED — search Spotify from NIGHT SHIFT.", color = Cyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.testTag("spotify_catalog_connected"))
+                                    OutlinedButton(onClick = onDisconnectCatalog, shape = CyberSmall, modifier = Modifier.fillMaxWidth().testTag("spotify_catalog_disconnect")) { Text("Disconnect catalogue") }
+                                }
+                            }
+                            catalog.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        }
                         if (!state.configReady) {
                             Text("Spotify connection isn't configured in this build. Your local library and audio links are ready to use.", color = Milk, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("spotify_not_configured"))
                         } else if (!state.installed) {
@@ -170,7 +195,7 @@ fun SpotifyPanel(
                             Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp))
                         }
                         HorizontalDivider(color = Hairline)
-                        Text("Spotify handles sign-in, audio playback, offline listening and catalogue availability. Music Player does not create another account or ask you to choose a country.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        Text("Spotify handles account authorization, audio playback, offline listening and catalogue availability. NIGHT SHIFT does not create another account or ask you to choose a country.", color = Muted, style = MaterialTheme.typography.bodySmall)
                         Text("PLAYBACK PROVIDED BY SPOTIFY", color = Cyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 }

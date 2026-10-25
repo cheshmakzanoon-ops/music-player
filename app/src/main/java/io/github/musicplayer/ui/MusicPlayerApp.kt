@@ -58,6 +58,7 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.musicplayer.data.AudioUrlPolicy
 import io.github.musicplayer.model.DownloadState
 import io.github.musicplayer.model.Track
+import io.github.musicplayer.spotify.SpotifyCatalogItem
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -279,6 +280,8 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val results = remember(state.tracks, query) { state.tracks.filter { "${it.title} ${it.artist} ${it.album} ${it.source}".contains(query.trim(), ignoreCase = true) } }
+    val spotify = state.spotifyCatalog
+    LaunchedEffect(query, spotify.authorized) { actions.onSearchSpotifyCatalog(query) }
     LazyColumn(Modifier.fillMaxSize().testTag("search_screen"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { AppHeader(onSettings) }
         item {
@@ -303,7 +306,53 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
                 }
             }
         }
-        item { SectionHeading(if (query.isBlank()) "Your sound collection" else "Search results", "${results.size} TRACK${if (results.size == 1) "" else "S"}") }
+        item { SectionHeading("Spotify catalogue", "LIVE / SPOTIFY WEB API") }
+        item {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)
+                    .clip(CyberPanel).background(Panel).border(1.dp, Cyan.copy(.3f), CyberPanel)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(7.dp).background(if (spotify.authorized) Cyan else Muted, CircleShape))
+                    Text(if (spotify.authorized) "SPOTIFY CONNECTED" else "SPOTIFY CATALOGUE ACCESS", color = Cyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                }
+                when {
+                    !spotify.configured -> {
+                        Text("Spotify catalogue search needs a registered developer client ID. Local listening remains available.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_unconfigured"))
+                        TextButton(onClick = { actions.onOpenSpotify(query.ifBlank { "" }) }, modifier = Modifier.testTag("spotify_catalog_open_external")) {
+                            Text(if (query.isBlank()) "Spotify connection" else "Search in Spotify")
+                            Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.padding(start = 8.dp).size(16.dp))
+                        }
+                    }
+                    !spotify.authorized -> {
+                        Text("Browse real Spotify tracks, albums and artists here. Spotify authorization is optional and separate from guest listening.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = actions.onAuthorizeSpotifyCatalog, enabled = !spotify.authorizing,
+                            modifier = Modifier.fillMaxWidth().testTag("spotify_catalog_connect"), shape = CyberSmall) {
+                            if (spotify.authorizing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text(if (spotify.authorizing) "Waiting for Spotify…" else "Connect Spotify catalogue")
+                        }
+                    }
+                    query.isBlank() -> Text("Search above to explore Spotify's catalogue. Playback and availability remain with Spotify.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    spotify.loading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Cyan)
+                            Text("Searching Spotify…", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    spotify.error == null && spotify.results.isEmpty() -> Text("No Spotify results for this search.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    else -> Text("${spotify.results.size} catalogue results · track / album / artist", color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
+                spotify.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_error")) }
+            }
+        }
+        if (spotify.authorized && query.isNotBlank()) {
+            items(spotify.results, key = { "spotify_${it.kind.apiName}_${it.id}" }) { item ->
+                SpotifyCatalogRow(item, state, actions)
+            }
+        }
+        item { SectionHeading(if (query.isBlank()) "Your sound collection" else "On this device", "${results.size} LOCAL TRACK${if (results.size == 1) "" else "S"}") }
         if (results.isEmpty()) {
             item { EmptyState(Icons.Rounded.SearchOff, "Nothing on this frequency", "Try another title or artist, or import something you love.", "Import audio", actions.onImportAudio) }
         } else {
@@ -317,6 +366,28 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SpotifyCatalogRow(item: SpotifyCatalogItem, state: PlayerUiState, actions: PlayerActions) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 5.dp)
+            .clip(CyberSmall).background(Panel).border(1.dp, Hairline, CyberSmall)
+            .clickable { actions.onSelectSpotifyResult(item) }
+            .testTag("spotify_result_${item.kind.apiName}_${item.id}")
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(13.dp),
+    ) {
+        SpotifyCover(item.artworkUrl, item.title, Modifier.size(66.dp).clip(CyberSmall))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(item.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(item.subtitle, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("SPOTIFY · ${item.kind.apiName.uppercase()} · ${if (state.spotifyCatalog.authorized) "OPEN / PLAY" else "OPEN"}", color = Cyan, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+        }
+        Icon(if (item.kind.apiName == "track") Icons.Rounded.PlayArrow else Icons.Rounded.ArrowOutward,
+            "Open ${item.title} on Spotify", tint = Lime, modifier = Modifier.size(23.dp))
     }
 }
 

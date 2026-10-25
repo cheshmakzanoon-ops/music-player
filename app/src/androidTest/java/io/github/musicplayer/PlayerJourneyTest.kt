@@ -104,6 +104,27 @@ class PlayerJourneyTest {
     }
 
     @Test
+    fun spotifyCatalogueSearchIsOptionalAndDoesNotInterruptGuestMode() {
+        compose.onNodeWithTag("nav_search").performClick()
+        compose.onNodeWithTag("search_screen").assertIsDisplayed()
+        val catalog = model.spotifyCatalog.state.value
+        assertFalse(catalog.authorizing)
+        assertFalse(catalog.authorized)
+        if (catalog.configured) {
+            compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_catalog_connect"))
+            compose.onNodeWithTag("spotify_catalog_connect").assertIsDisplayed().assertIsEnabled()
+        } else {
+            compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_catalog_unconfigured"))
+            compose.onNodeWithTag("spotify_catalog_unconfigured").assertExists()
+        }
+        compose.onNodeWithTag("search_input").performTextInput("night")
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("track_night-drive"))
+        compose.onNodeWithTag("track_night-drive").assertExists()
+        assertFalse(model.spotifyCatalog.state.value.authorizing)
+        assertNull(model.spotifyCatalog.state.value.error)
+    }
+
+    @Test
     fun realPlaybackSeekQueueAndFavouriteSurviveActivityRecreation() {
         compose.onNodeWithTag("hero_play").performClick()
         compose.waitUntil(15_000) { model.player.state.value.isPlaying && model.player.state.value.positionMs > 300 }
