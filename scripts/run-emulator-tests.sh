@@ -4,12 +4,12 @@ mkdir -p ci-artifacts
 collect_evidence() {
   local status=$?
   trap - EXIT
-  adb logcat -d > ci-artifacts/logcat.txt 2>&1 || true
-  adb pull /sdcard/Android/data/io.github.musicplayer/files/screenshots ci-artifacts/screenshots >/dev/null 2>&1 || true
+  timeout --kill-after=5s 20s adb logcat -d > ci-artifacts/logcat.txt 2>&1 || true
+  timeout --kill-after=5s 30s adb pull /sdcard/Android/data/io.github.musicplayer/files/screenshots ci-artifacts/screenshots >/dev/null 2>&1 || true
   if [[ "$status" -ne 0 ]]; then
-    adb exec-out screencap -p > ci-artifacts/failure-screen.png 2>/dev/null || true
+    timeout --kill-after=5s 15s adb exec-out screencap -p > ci-artifacts/failure-screen.png 2>/dev/null || true
   fi
-  adb shell settings put system font_scale 1.0 >/dev/null 2>&1 || true
+  timeout --kill-after=5s 10s adb shell settings put system font_scale 1.0 >/dev/null 2>&1 || true
   python3 - "$status" <<'PY'
 from pathlib import Path
 import json
@@ -72,13 +72,13 @@ adb install -r -t ci-apks/debug/app-debug.apk
 adb install -r -t ci-apks/androidTest/debug/app-debug-androidTest.apk
 # Some Android 8 images refuse to clear the main buffer; this must not prevent
 # instrumentation from running. The exit trap still captures available logs.
-if ! adb logcat -c; then
+if ! timeout --kill-after=5s 10s adb logcat -c; then
   echo 'Warning: emulator log buffer could not be cleared; continuing with tests.' >&2
 fi
 # Run both independent checks before deciding the job result. Preserve transport,
 # timeout, transcript-write and assertion failures; none become an implicit pass.
 set +e
-timeout --signal=TERM 8m adb shell am instrument -w -r io.github.musicplayer.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee ci-artifacts/instrumentation.txt
+timeout --signal=TERM --kill-after=10s 8m adb shell am instrument -w -r io.github.musicplayer.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee ci-artifacts/instrumentation.txt
 instrumentation_pipeline_status=("${PIPESTATUS[@]}")
 set -e
 instrumentation_process_status=${instrumentation_pipeline_status[0]}

@@ -1,17 +1,24 @@
 package io.github.musicplayer
 
+import android.Manifest
+import android.app.ActivityManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.media.session.MediaSessionManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewTreeObserver
+import android.view.inspector.WindowInspector
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.Root
 import androidx.test.espresso.UiController
 import androidx.test.espresso.ViewAction
 import androidx.test.espresso.matcher.ViewMatchers.isRoot as isAndroidRoot
@@ -24,6 +31,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.hamcrest.Matcher
+import org.hamcrest.TypeSafeMatcher
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -41,12 +49,12 @@ class PlayerJourneyTest {
     @get:Rule(order = 0)
     val stateReset = object : ExternalResource() {
         override fun before() {
-            context.stopService(Intent(context, PlayerService::class.java))
+            stopPlaybackAndAwaitTeardown()
             context.getSharedPreferences("appearance", 0).edit().clear().putBoolean("reduce_motion", true).commit()
             context.getSharedPreferences("music-library", 0).edit().clear().commit()
             context.getSharedPreferences("player-session", 0).edit().clear().commit()
         }
-        override fun after() { context.stopService(Intent(context, PlayerService::class.java)) }
+        override fun after() { stopPlaybackAndAwaitTeardown() }
     }
 
     @get:Rule(order = 1)
@@ -230,6 +238,43 @@ class PlayerJourneyTest {
         compose.waitUntil(10_000) { kotlin.math.abs(context.resources.configuration.fontScale - scale) < 0.01f }
     }
 
+    @Suppress("DEPRECATION") // This test only queries services belonging to its own application.
+    private fun stopPlaybackAndAwaitTeardown() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val services = context.getSystemService(ActivityManager::class.java)
+        val notifications = context.getSystemService(NotificationManager::class.java)
+        instrumentation.runOnMainSync { context.stopService(Intent(context, PlayerService::class.java)) }
+        awaitCondition(10_000, "Previous playback service or notification did not finish teardown") {
+            services.getRunningServices(Int.MAX_VALUE).none { it.service.className == PlayerService::class.java.name } &&
+                notifications.activeNotifications.isEmpty()
+        }
+        // onDestroy persists the queue. Drain it before clearing preferences for the next test.
+        instrumentation.waitForIdleSync()
+        if (Build.VERSION.SDK_INT >= 29) {
+            instrumentation.uiAutomation.adoptShellPermissionIdentity(Manifest.permission.MEDIA_CONTENT_CONTROL)
+            try {
+                val sessions = context.getSystemService(MediaSessionManager::class.java)
+                awaitCondition(10_000, "Previous media session is still registered") {
+                    sessions.getActiveSessions(null).none { it.packageName == context.packageName }
+                }
+            } finally {
+                instrumentation.uiAutomation.dropShellPermissionIdentity()
+            }
+        }
+        // SystemUI removes the old media entry asynchronously. Wait for its accessibility
+        // event stream to settle before reusing the app's notification id in a new session.
+        UiDevice.getInstance(instrumentation).waitForIdle(5_000)
+        instrumentation.waitForIdleSync()
+    }
+
+    private fun awaitCondition(timeoutMs: Long, message: String, condition: () -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (!condition()) {
+            check(SystemClock.uptimeMillis() < deadline) { message }
+            SystemClock.sleep(20)
+        }
+    }
+
     private fun screenshot(name: String) {
         compose.waitForIdle()
         // Compose idleness settles semantics, not necessarily the native render buffer. Like
@@ -251,10 +296,7 @@ class PlayerJourneyTest {
         lateinit var root: View
         var drawListener: ViewTreeObserver.OnDrawListener? = null
         var commitCallback: Runnable? = null
-        onView(isAndroidRoot()).perform(object : ViewAction {
-            override fun getDescription() = "Submit a fresh frame of the focused window"
-            override fun getConstraints(): Matcher<View> = isAndroidRoot()
-            override fun perform(uiController: UiController, view: View) {
+        val requestDraw: (View) -> Unit = { view ->
                 root = view
                 if (Build.VERSION.SDK_INT >= 29 && view.isHardwareAccelerated) {
                     val callback = Runnable { drawn.countDown() }
@@ -280,8 +322,36 @@ class PlayerJourneyTest {
                     view.viewTreeObserver.addOnDrawListener(listener)
                 }
                 view.invalidate()
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            var focused: View? = null
+            awaitCondition(5_000, "No focused app or dialog window is available for capture") {
+                instrumentation.runOnMainSync {
+                    focused = WindowInspector.getGlobalWindowViews().lastOrNull {
+                        it.isAttachedToWindow && it.isShown && it.hasWindowFocus()
+                    }
+                }
+                focused != null
             }
-        })
+            instrumentation.runOnMainSync { requestDraw(requireNotNull(focused)) }
+        } else {
+            // Explicitly match current focus; Espresso's default root can retain a stale
+            // Activity window across a font-scale recreation while its dialog owns focus.
+            val focusedRoot = object : TypeSafeMatcher<Root>() {
+                override fun describeTo(description: org.hamcrest.Description) {
+                    description.appendText("an attached and currently focused app window")
+                }
+                override fun matchesSafely(item: Root): Boolean = item.decorView.let {
+                    it.isAttachedToWindow && it.isShown && it.hasWindowFocus()
+                }
+            }
+            onView(isAndroidRoot()).inRoot(focusedRoot).perform(object : ViewAction {
+                override fun getDescription() = "Submit a fresh frame of the focused window"
+                override fun getConstraints(): Matcher<View> = isAndroidRoot()
+                override fun perform(uiController: UiController, view: View) = requestDraw(view)
+            })
+        }
         try {
             assertTrue("The focused window did not render within 5 seconds", drawn.await(5, TimeUnit.SECONDS))
             // A committed buffer need not be visible yet. Two real display frames allow the
