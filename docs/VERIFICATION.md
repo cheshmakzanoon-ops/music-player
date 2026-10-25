@@ -110,3 +110,38 @@ persistent background scheduling and resumable transfers are not implemented.
 Workflow artifacts have limited retention (30 days for APK/emulator artifacts and
 14 days for build reports). Source, the structured verification record and selected
 screenshots are retained in the repository.
+
+## Spotify catalogue extension — 2026-10-25
+
+After the earlier local-player verification, a separate in-app Spotify Web API
+catalogue integration was implemented on `main`. Its first complete successful
+run was [40187682490](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490),
+source revision [`0968861`](https://github.com/cheshmakzanoon-ops/music-player/commit/0968861d62cc5969ece14ffd555fd51282af58e6).
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Compile, unit tests, lint | Passed; **16 JVM tests**, no failures; **0 lint errors, 25 warnings** | [Build reports](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597495552) |
+| Android 8 / API 26 | **18/18 instrumentation tests** passed in 47.768 seconds | [Emulator evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597406197) |
+| Android 15 / API 35 | **19/19 instrumentation tests** passed in 99.245 seconds | [Emulator evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597471131) |
+| Frida / API 35 | Lifecycle smoke succeeded | Same API 35 artifact |
+| Installable APK | Built and uploaded | [APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597240925) |
+
+The new JVM tests exercise Spotify's OAuth PKCE challenge/state validation, a
+real bounded loopback callback, exact redirect matching, code exchange and
+refresh requests against a mock server, actual `/v1/search` request shape,
+Spotify catalogue JSON parsing and visible 403/429 errors. The additional
+emulator test checks that the Spotify catalogue section is optional and that
+local search continues to work without starting Spotify authorization.
+The new [search and connection screenshots](screenshots/README.md#spotify-catalogue-extension-screenshots)
+were reviewed as unmodified emulator captures.
+
+These tests provide evidence for implementation correctness, **not** proof
+of a live account connection. The CI workflow was not given a Spotify Client ID,
+allowlisted user, matching App Remote signing fingerprint or Spotify user session.
+Live Spotify access and playback therefore remain **unverified**, and Spotify
+continues to enforce account, market, playback and offline-access restrictions.
+
+Later changes add a deterministic populated-result UI emulator test and advance
+the catalogue-capable app to version 0.3.0. The latest run in
+[Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
+is authoritative for those later code changes.

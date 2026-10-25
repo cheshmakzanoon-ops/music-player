@@ -30,3 +30,19 @@ Settings dialog. The other selected API 35 images show their intended screens.
 The complete raw evidence remains in the run's
 [API 26 artifact](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12594784964)
 and [API 35 artifact](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595950587).
+
+## Spotify catalogue extension screenshots
+
+These two additional unmodified PNGs were copied from the successful
+[Android 15 emulator artifact of run 40187682490](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40187682490/artifacts/12597471131),
+application revision `0968861d62cc5969ece14ffd555fd51282af58e6`:
+
+| File | Raw artifact source | SHA-256 |
+| --- | --- | --- |
+| [Spotify catalogue Search](spotify-catalogue-search-api35.png) | `02-search.png` | `fcb18561baf010e8ad0e70ff3e804fdab4bcec75be7ced72e26b3e50fe67a33f` |
+| [Spotify catalogue connection](spotify-catalogue-connection-api35.png) | `10-spotify-connection.png` | `190d79a7636de289d0aff3c8ee4c50147105af4afbd7189d96b315f0b6b9cd52` |
+
+Both were visually checked for correct, readable controls. Neither screenshot
+claims live authentication: the corresponding APK intentionally has no public
+Spotify developer client ID configured. The populated result-row rendering is
+covered separately by a deterministic emulator test with fixed fixture data.
