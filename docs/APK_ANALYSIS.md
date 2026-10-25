@@ -86,6 +86,38 @@ The supported integration boundary is described by Spotify's own documentation:
 - [Android authorization](https://developer.spotify.com/documentation/android/tutorials/authorization): user permission is part of the supported connection flow.
 - [Spotify Web API](https://developer.spotify.com/documentation/web-api): exposes metadata and playback control with API authorization; it is not an anonymous full-catalogue audio-file endpoint.
 
+### Verified integration surface
+
+A repeat inventory of the unchanged reference produced an identical
+`analysis-metadata.json`: both APK hashes, signature results, the 95,351-class
+count, manifest counts, host inventory and native-library evidence match the
+recorded report. This confirms reproducibility of the static findings; it does
+not add runtime or server-side evidence.
+
+The decoded original manifest declares
+`com.spotify.interapp.service.service.AppProtocolRemoteService` as an exported
+service, with the `START_APP_PROTOCOL_SERVICE` and `BIND_PROTOCOL_SERVICE` actions
+in Spotify's app-protocol namespace. This is consistent with the supported App
+Remote integration documented above. An exported service is an Android entry
+point, **not** evidence that callers can skip authorization. Its remote commands,
+session state and catalogue access remain subject to the official client's
+checks.
+
+The same manifest marks `OffliningService` and the primary `LoginActivity` as
+non-exported. The calling-code picker is part of a phone signup flow; its existence
+does not establish where regional playback decisions are made. Replacing those
+screens can change the frontend experience, but cannot change the service's
+account, availability or offline-entitlement rules.
+
+For a new frontend that retains the supported Spotify playback path, the concrete
+boundary is the official App Remote SDK: the new app renders its own controls and
+metadata while the official Spotify app handles its backend connection and audio.
+The original player's local/HTTPS library remains a separate source and opens
+without a Google account, Spotify account, or country selection. A registered
+developer client ID and Spotify user authorization are still required for the
+optional Spotify connection. No server implementation or production credentials
+can be reconstructed from this manifest evidence.
+
 Consequently, the requested combination of **the same Spotify backend + no account + every country + unlimited catalogue downloads** is not delivered by this analysis and is not an available property of a new UI. The existing service's authorization, supported devices, availability, content rights and offline behavior still apply. No method for bypassing those restrictions was investigated or added.
 
 An original player can start without its own signup and use local audio or network sources that explicitly permit playback and downloads. A Spotify-facing option can use its supported authorized integration or open content in Spotify. Those are distinct capabilities and should be labeled distinctly in the product and tests.

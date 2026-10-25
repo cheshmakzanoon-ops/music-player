@@ -184,6 +184,47 @@ class RepositoryDownloadTest {
         assertDownloadFails(repository, track, "checksum did not match")
     }
 
+    @Test fun catalogueChecksumsAndUpdatedEntriesSurviveRestartBeforeDownload() = runBlocking {
+        val repository = repository()
+        val updated = registerCatalogueFixture(repository, id = "night-drive", title = "Updated night drive")
+        repository.close()
+
+        // Recreate before saving the file. Integrity data must survive separately
+        // from a completed download, and a bundled ID must retain its newer URL.
+        val restored = repository()
+        val track = restored.tracks.value.first { it.id == "night-drive" }
+        assertEquals("Updated night drive", track.title)
+        assertEquals(updated.streamUri, track.streamUri)
+        assertEquals(1, restored.tracks.value.count { it.id == "night-drive" })
+        assertEquals("asset:///audio/first-light.wav", restored.tracks.value.first { it.id == "first-light" }.streamUri)
+
+        server.enqueue(audioResponse(wav.copyOf(64)))
+        assertDownloadFails(restored, track, "size differs")
+        val changed = wav.copyOf().apply { this[lastIndex] = (this[lastIndex].toInt() xor 1).toByte() }
+        server.enqueue(audioResponse(changed))
+        assertDownloadFails(restored, track, "checksum did not match")
+    }
+
+    @Test fun malformedCatalogueIntegrityDoesNotReplaceTheWorkingLibrary() = runBlocking {
+        val repository = repository()
+        val original = repository.tracks.value
+        for ((field, value, expected) in listOf(
+            Triple("sha256", "not-a-sha256-digest", "invalid audio checksum"),
+            Triple("sizeBytes", -10, "invalid audio size"),
+        )) {
+            val fixture = catalogueFixture().put(field, value)
+            server.enqueue(MockResponse().setHeader("Content-Type", "application/json")
+                .setBody(JSONObject().put("tracks", JSONArray().put(fixture)).toString()))
+            repository.clearError()
+            repository.refreshCatalog()
+            withTimeout(10000) { repository.refreshing.first { !it } }
+            assertEquals("/catalog.json", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+            assertTrue(repository.error.value.orEmpty(), repository.error.value.orEmpty().contains(expected))
+            assertEquals(original, repository.tracks.value)
+            assertFalse(repository.tracks.value.any { it.id == "verified-fixture" })
+        }
+    }
+
     @Test fun savedTrackCanBeRemovedWithoutLosingItsOnlineSource() = runBlocking {
         val repository = repository()
         val track = registerCatalogueFixture(repository)
@@ -244,25 +285,30 @@ class RepositoryDownloadTest {
         assertEquals(null, it.error.value)
     }
 
-    private suspend fun registerCatalogueFixture(repository: MusicRepository): Track {
-        val json = JSONObject().put("tracks", JSONArray().put(JSONObject().apply {
-            put("id", "verified-fixture")
-            put("title", "Verified fixture")
-            put("artist", "Original generated test audio")
-            put("durationMs", 24000)
-            put("streamUri", server.url("/fixture.wav").toString())
-            put("downloadable", true)
-            put("license", "CC0-1.0")
-            put("source", "Test fixture")
-            put("sha256", sha256(wav))
-            put("sizeBytes", wav.size)
-        }))
+    private fun catalogueFixture(id: String = "verified-fixture", title: String = "Verified fixture") = JSONObject().apply {
+        put("id", id)
+        put("title", title)
+        put("artist", "Original generated test audio")
+        put("durationMs", 24000)
+        put("streamUri", server.url("/fixture.wav").toString())
+        put("downloadable", true)
+        put("license", "CC0-1.0")
+        put("source", "Test fixture")
+        put("sha256", sha256(wav))
+        put("sizeBytes", wav.size)
+    }
+
+    private suspend fun registerCatalogueFixture(
+        repository: MusicRepository,
+        id: String = "verified-fixture",
+        title: String = "Verified fixture",
+    ): Track {
+        val json = JSONObject().put("tracks", JSONArray().put(catalogueFixture(id, title)))
         server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(json.toString()))
         repository.refreshCatalog()
-        val track = withTimeout(10000) {
-            repository.tracks.first { list -> list.any { it.id == "verified-fixture" } }.first { it.id == "verified-fixture" }
-        }
         withTimeout(10000) { repository.refreshing.first { !it } }
+        assertEquals(null, repository.error.value)
+        val track = repository.tracks.value.first { it.id == id }
         assertEquals("/catalog.json", server.takeRequest(3, TimeUnit.SECONDS)?.path)
         assertEquals("asset:///audio/first-light.wav", repository.tracks.value.first { it.id == "first-light" }.streamUri)
         return track

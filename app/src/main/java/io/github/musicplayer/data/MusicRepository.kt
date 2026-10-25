@@ -419,8 +419,18 @@ class MusicRepository(
             val track = TrackJson.decode(json).copy(offlinePath = null)
             require(track.id.isNotBlank() && track.title.isNotBlank()) { "The catalogue contains an unnamed track." }
             require(track.streamUri.startsWith("asset:///") || AudioUrlPolicy.validateHttps(track.streamUri).isNotBlank())
-            val sha = json.optString("sha256").lowercase().takeIf { it.matches(Regex("[0-9a-f]{64}")) }
-            val size = json.optLong("sizeBytes", -1).takeIf { it > 0 }
+            // A broken published integrity field must reject the catalogue, not silently
+            // turn a verified download into an unchecked one.
+            val sha = if (json.has("sha256") && !json.isNull("sha256")) {
+                json.getString("sha256").lowercase().also {
+                    require(it.matches(Regex("[0-9a-f]{64}"))) { "The catalogue contains an invalid audio checksum." }
+                }
+            } else null
+            val size = if (json.has("sizeBytes") && !json.isNull("sizeBytes")) {
+                json.getLong("sizeBytes").also {
+                    require(it > 0) { "The catalogue contains an invalid audio size." }
+                }
+            } else null
             specs[track.id] = DownloadSpec(sha, size)
             track
         }.distinctBy(Track::id)
