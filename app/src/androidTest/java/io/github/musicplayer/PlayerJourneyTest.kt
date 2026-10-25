@@ -3,6 +3,7 @@ package io.github.musicplayer
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -17,6 +18,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExternalResource
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 
 /** Exercises the shipped UI and real MediaSessionService, with original local audio. */
@@ -37,6 +40,15 @@ class PlayerJourneyTest {
 
     @get:Rule(order = 1)
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @get:Rule(order = 2)
+    val failureEvidence = object : TestWatcher() {
+        override fun failed(error: Throwable, description: Description) {
+            // Do not wait for Compose idleness: a stalled UI is exactly what this evidence must capture.
+            runCatching { captureScreenshot("failure-${description.methodName}") }
+        }
+    }
+
     private lateinit var model: MusicViewModel
 
     @Before
@@ -62,6 +74,7 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("search_input").performImeAction()
         compose.onNodeWithTag("search_screen").performScrollToNode(hasText("Nothing on this frequency"))
         compose.onNodeWithText("Nothing on this frequency").assertExists()
+        screenshot("06-search-empty")
         compose.onNodeWithTag("nav_library").performClick()
         compose.onNodeWithTag("import_audio").assertIsDisplayed()
         compose.onNodeWithTag("add_stream").assertIsDisplayed()
@@ -131,6 +144,7 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("nav_library").performClick()
         compose.onNodeWithTag("add_stream").performClick()
         compose.onNodeWithTag("confirm_add_stream").assertIsNotEnabled()
+        screenshot("07-add-source")
         compose.onNodeWithTag("stream_title").performTextInput("My recording")
         compose.onNodeWithTag("stream_url").performTextInput("http://example.com/audio.wav")
         compose.onNodeWithTag("stream_permission").performScrollTo().performClick()
@@ -145,8 +159,44 @@ class PlayerJourneyTest {
         assertNull(model.repository.error.value)
     }
 
+    @Test
+    fun largeTextKeepsSettingsAndSourceControlsReachable() {
+        val originalScale = context.resources.configuration.fontScale
+        try {
+            setFontScale(1.5f)
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithTag("settings").performClick()
+            compose.onNodeWithTag("reduce_motion").performScrollTo().assertIsOn()
+            screenshot("08-settings-large-text")
+            compose.onNodeWithTag("close_settings").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("nav_library").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("library_screen").performScrollToNode(hasTestTag("add_stream"))
+            compose.onNodeWithTag("add_stream").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("stream_title").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("stream_url").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("stream_permission").performScrollTo().assertIsDisplayed()
+            screenshot("09-source-large-text")
+            compose.onNodeWithTag("confirm_add_stream").assertIsDisplayed().assertIsNotEnabled()
+            compose.onNodeWithText("Cancel").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("nav_home").assertIsDisplayed().performClick()
+        } finally {
+            setFontScale(originalScale)
+        }
+    }
+
+    private fun setFontScale(scale: Float) {
+        val command = "settings put system font_scale $scale"
+        val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+        compose.waitUntil(10_000) { kotlin.math.abs(context.resources.configuration.fontScale - scale) < 0.01f }
+    }
+
     private fun screenshot(name: String) {
         compose.waitForIdle()
+        captureScreenshot(name)
+    }
+
+    private fun captureScreenshot(name: String) {
         val file = File(context.getExternalFilesDir(null), "screenshots/$name.png")
         file.parentFile!!.mkdirs()
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()

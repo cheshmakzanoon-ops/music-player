@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -34,13 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -123,22 +118,28 @@ fun MusicPlayerApp(state: PlayerUiState, actions: PlayerActions) {
 
 @Composable
 private fun Navigation(selected: Destination, onSelect: (Destination) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceAround) {
-        listOf(
-            Triple(Destination.HOME, "Discover", Icons.Rounded.Explore),
-            Triple(Destination.SEARCH, "Search", Icons.Rounded.Search),
-            Triple(Destination.LIBRARY, "Library", Icons.Rounded.LibraryMusic),
-        ).forEach { (destination, label, icon) ->
-            val active = selected == destination
-            Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(18.dp))
-                    .clickable { onSelect(destination) }.testTag("nav_${destination.name.lowercase()}").semantics { this.selected = active; role = Role.Tab }
-                    .padding(vertical = 10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(icon, contentDescription = null, tint = if (active) Lime else Muted, modifier = Modifier.size(23.dp))
-                Text(label, color = if (active) Milk else Muted, fontSize = 11.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+    Column {
+        HorizontalDivider(color = Hairline, thickness = 1.dp)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Triple(Destination.HOME, "Discover", Icons.Rounded.Explore),
+                Triple(Destination.SEARCH, "Search", Icons.Rounded.Search),
+                Triple(Destination.LIBRARY, "Library", Icons.Rounded.LibraryMusic),
+            ).forEach { (destination, label, icon) ->
+                val active = selected == destination
+                Column(
+                    Modifier.weight(1f).clip(CyberSmall)
+                        .background(if (active) Lime.copy(.10f) else Color.Transparent)
+                        .clickable { onSelect(destination) }.testTag("nav_${destination.name.lowercase()}")
+                        .semantics { this.selected = active; role = Role.Tab }
+                        .padding(vertical = 9.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Icon(icon, contentDescription = null, tint = if (active) Lime else Muted, modifier = Modifier.size(22.dp))
+                    Text(label, color = if (active) Lime else Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Box(Modifier.width(18.dp).height(2.dp).background(if (active) Lime else Color.Transparent))
+                }
             }
         }
     }
@@ -147,12 +148,14 @@ private fun Navigation(selected: Destination, onSelect: (Destination) -> Unit) {
 @Composable
 private fun AppHeader(onSettings: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
-            Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(Lime), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Ink, modifier = Modifier.size(19.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+            Box(Modifier.size(35.dp).clip(CyberSmall).background(Lime), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Ink, modifier = Modifier.size(24.dp))
             }
-            Text("music player", fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp, fontSize = 19.sp)
-            Box(Modifier.padding(start = 2.dp).size(5.dp).background(Lime, CircleShape))
+            Column {
+                Text("NIGHT SHIFT", fontWeight = FontWeight.Black, letterSpacing = 1.3.sp, fontSize = 17.sp)
+                Text("MUSIC PLAYER  /  AFTER HOURS", fontFamily = FontFamily.Monospace, color = Cyan, fontSize = 8.sp, letterSpacing = .8.sp)
+            }
         }
         RoundIcon(Icons.Rounded.Tune, "Settings", onSettings, Modifier.testTag("settings"), filled = true)
     }
@@ -164,10 +167,15 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
     LazyColumn(Modifier.fillMaxSize().testTag("home_screen"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { AppHeader(onSettings) }
         item {
-            Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 26.dp)) {
-                Eyebrow("GOOD MUSIC. NO DISTRACTIONS.")
+            Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 22.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.width(22.dp).height(2.dp).background(Cyan))
+                    Eyebrow("YOUR WORLD. YOUR FREQUENCY.", color = Cyan)
+                }
                 Spacer(Modifier.height(12.dp))
-                Text("Find your\nfrequency.", style = MaterialTheme.typography.displayLarge, modifier = Modifier.semantics { heading() })
+                Text("AFTER HOURS.", style = MaterialTheme.typography.displayLarge, modifier = Modifier.semantics { heading() })
+                Text("ON REPEAT.", style = MaterialTheme.typography.displayLarge, color = Lime)
+                Text("A soundtrack for the city in your head.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 11.dp))
             }
         }
         item {
@@ -184,43 +192,52 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
             }
         }
         item {
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 28.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 17.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Headphones, null, tint = Cyan, modifier = Modifier.size(15.dp))
+                Text("GUEST MODE", color = Cyan, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = .9.sp, modifier = Modifier.padding(start = 7.dp))
+                Spacer(Modifier.weight(1f))
+                Text("NO SIGNUP · JUST PLAY", color = Muted, fontFamily = FontFamily.Monospace, fontSize = 9.sp)
+            }
+            HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = Hairline)
+        }
+        item {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 22.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("The studio sessions", style = MaterialTheme.typography.titleLarge)
-                    Text("Original sounds. Yours to explore.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                    Eyebrow("01 / ORIGINALS", color = Cyan)
+                    Text("Studio transmissions", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 6.dp))
                 }
-                Text(studioTracks.size.toString().padStart(2, '0'), fontFamily = FontFamily.Monospace, color = Lime, fontSize = 14.sp)
+                Text(studioTracks.size.toString().padStart(2, '0'), fontFamily = FontFamily.Monospace, color = Lime, fontSize = 23.sp)
             }
         }
         item {
-            LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(studioTracks.take(6), key = { it.id }) { track ->
-                    Column(Modifier.width(146.dp).clip(RoundedCornerShape(18.dp)).clickable { actions.onPlay(track, studioTracks) }.testTag("album_${track.id}")) {
+                    Column(Modifier.width(152.dp).clip(CyberSmall).clickable { actions.onPlay(track, studioTracks) }.testTag("album_${track.id}")) {
                         Box {
-                            AlbumArt(track, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(18.dp)))
-                            Box(Modifier.padding(10.dp).align(Alignment.BottomEnd).size(32.dp).background(Ink.copy(alpha = .8f), CircleShape), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.PlayArrow, null, tint = Milk, modifier = Modifier.size(20.dp))
+                            AlbumArt(track, Modifier.fillMaxWidth().aspectRatio(1f).clip(CyberPanel).border(1.dp, cyberAccent(track).copy(.35f), CyberPanel))
+                            Box(Modifier.padding(10.dp).align(Alignment.BottomEnd).size(32.dp).background(Lime, CyberSmall), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.PlayArrow, null, tint = Ink, modifier = Modifier.size(20.dp))
                             }
                         }
-                        Text(track.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(top = 11.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(track.artist, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(track.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 11.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(track.artist, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${timeLabel(track.durationMs)} / ORIGINAL AUDIO", color = cyberAccent(track), fontSize = 8.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 6.dp, bottom = 7.dp))
                     }
                 }
             }
         }
-        item { SectionHeading("Press play", "EVERY DETAIL, EVERY NOTE", Modifier.padding(top = 30.dp)) }
-        items(state.tracks, key = { "list_${it.id}" }) { track ->
-            TrackRow(track, state, actions, state.tracks)
-        }
+        item { SectionHeading("In rotation", "02 / YOUR AVAILABLE TRACKS", Modifier.padding(top = 18.dp)) }
+        items(state.tracks, key = { "list_${it.id}" }) { track -> TrackRow(track, state, actions, state.tracks) }
         item {
-            Column(Modifier.padding(24.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, tint = Lilac, modifier = Modifier.size(22.dp))
-                    Text("Your Spotify, a tap away", style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.padding(24.dp).fillMaxWidth().clip(CyberPanel).background(Panel).border(1.dp, Cyan.copy(.3f), CyberPanel).padding(20.dp)) {
+                Eyebrow("03 / CONNECTED LISTENING", color = Cyan)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 12.dp)) {
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, tint = Cyan, modifier = Modifier.size(22.dp))
+                    Text("Your Spotify connection", style = MaterialTheme.typography.titleMedium)
                 }
-                Text("Open the official app for its catalogue and your account.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
+                Text("Keep your music close. Connect through Spotify with your existing account.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
                 TextButton(onClick = { actions.onOpenSpotify("") }, contentPadding = PaddingValues(0.dp), modifier = Modifier.testTag("open_spotify")) {
-                    Text("Open Spotify", color = Milk)
+                    Text("Spotify connection", color = Lime)
                     Icon(Icons.Rounded.ArrowOutward, null, modifier = Modifier.padding(start = 8.dp).size(16.dp), tint = Lime)
                 }
             }
@@ -230,35 +247,26 @@ private fun HomeScreen(state: PlayerUiState, actions: PlayerActions, onSettings:
 
 @Composable
 private fun HeroCard(track: Track, animate: Boolean, onPlay: () -> Unit) {
-    Box(Modifier.padding(horizontal = 24.dp).fillMaxWidth().heightIn(min = 238.dp).clip(RoundedCornerShape(28.dp)).background(Color(0xFF273125)).clickable(onClick = onPlay).testTag("hero_play")) {
-        val phase = motionPhase(animate, 24000)
-        Canvas(Modifier.matchParentSize()) {
-            drawRect(Brush.linearGradient(listOf(Color(0xFF35482C), Color(0xFF172219))))
-            val center = Offset(size.width * .88f, size.height * .42f)
-            val radius = size.width * .39f
-            drawCircle(Brush.radialGradient(listOf(Lime.copy(.25f), Color.Transparent), center, radius * 1.5f), radius * 1.5f, center)
-            rotate(phase * 20f, center) {
-                repeat(18) { index ->
-                    val r = radius * (0.18f + index * .047f)
-                    drawOval(Lime.copy(alpha = .11f + index * .012f), Offset(center.x - r, center.y - r * .6f), Size(r * 2, r * 1.2f), style = Stroke(1.6f))
-                }
-                drawCircle(Lime, 4f, Offset(center.x + radius * .65f, center.y - radius * .4f))
+    Box(Modifier.padding(horizontal = 24.dp).fillMaxWidth().heightIn(min = 245.dp).clip(CyberPanel)
+        .background(Panel).border(1.dp, Cyan.copy(.4f), CyberPanel).clickable(onClick = onPlay).testTag("hero_play")) {
+        CyberCity(Modifier.matchParentSize(), motionPhase(animate, 24000))
+        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Ink.copy(.83f), Ink.copy(.40f), Color.Transparent))))
+        Column(Modifier.fillMaxWidth().padding(22.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(Modifier.size(5.dp).background(Cyan, CircleShape))
+                Eyebrow("FEATURED TRANSMISSION", color = Cyan)
             }
-        }
-        Column(Modifier.fillMaxWidth().padding(23.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(5.dp).background(Lime, CircleShape))
-                Text("THE LISTENING ROOM", fontFamily = FontFamily.Monospace, color = Lime, fontSize = 10.sp, letterSpacing = 1.sp)
-            }
-            Spacer(Modifier.height(15.dp))
-            Text("Less noise.\nMore feeling.", fontSize = 30.sp, lineHeight = 33.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1).sp)
+            Spacer(Modifier.height(24.dp))
+            Text("LIGHTS LOW.\nVOLUME UP.", fontSize = 29.sp, lineHeight = 31.sp, fontWeight = FontWeight.Black, letterSpacing = (-.7).sp)
+            Text("Original sounds. Neon nights.", color = Milk.copy(.75f), fontSize = 11.sp, modifier = Modifier.padding(top = 9.dp))
+            Spacer(Modifier.height(27.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Start with ${track.title}", fontSize = 12.sp, color = Milk)
-                    Text("Original studio samples", fontSize = 11.sp, color = Milk.copy(.6f), modifier = Modifier.padding(top = 2.dp))
+                    Text(track.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Milk)
+                    Text("START THE SESSION / ${timeLabel(track.durationMs)}", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Cyan, modifier = Modifier.padding(top = 4.dp))
                 }
-                Box(Modifier.size(48.dp).background(Lime, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PlayArrow, "Play ${track.title}", tint = Ink, modifier = Modifier.size(28.dp))
+                Box(Modifier.size(49.dp).background(Lime, CyberSmall), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.PlayArrow, "Play ${track.title}", tint = Ink, modifier = Modifier.size(29.dp))
                 }
             }
         }
@@ -274,14 +282,14 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
         item { AppHeader(onSettings) }
         item {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
-                Eyebrow("FOLLOW YOUR CURIOSITY")
-                Text(if (query.isBlank()) "On your\nwavelength." else "Find your next.", style = if (query.isBlank()) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
+                Eyebrow("FIND YOUR NEXT TRANSMISSION", color = Cyan)
+                Text(if (query.isBlank()) "TUNE INTO\nSOMETHING." else "FIND YOUR SIGNAL.", style = if (query.isBlank()) MaterialTheme.typography.displayLarge else MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
                 OutlinedTextField(
                     value = query, onValueChange = onQuery,
-                    placeholder = { Text("Tracks, artists, a feeling…", fontSize = 14.sp) },
+                    placeholder = { Text("Search tracks, artists, albums…", fontSize = 14.sp) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Lime) },
                     trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Clear search") } },
-                    singleLine = true, shape = RoundedCornerShape(18.dp),
+                    singleLine = true, shape = CyberSmall,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); focus.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Panel, unfocusedContainerColor = Panel, unfocusedBorderColor = Hairline),
@@ -326,11 +334,22 @@ private fun LibraryScreen(state: PlayerUiState, actions: PlayerActions, onAddSou
         item { AppHeader(onSettings) }
         item {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
-                Eyebrow("COLLECT WHAT MOVES YOU")
-                Text("Your music.\nYour space.", style = MaterialTheme.typography.displayLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
+                Eyebrow("YOUR PERSONAL ARCHIVE", color = Cyan)
+                Text("KEEP IT\nON REPEAT.", style = MaterialTheme.typography.displayLarge, modifier = Modifier.padding(top = 12.dp).semantics { heading() })
                 Row(Modifier.padding(top = 24.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LibraryAction("Import audio", Icons.Rounded.Add, actions.onImportAudio, Modifier.weight(1f).testTag("import_audio"), true)
                     LibraryAction("Add stream", Icons.Rounded.Link, onAddSource, Modifier.weight(1f).testTag("add_stream"), false)
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 20.dp).clip(CyberSmall).background(Panel).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(state.tracks.count { it.isOffline }.toString().padStart(2, '0'), color = Cyan, fontSize = 22.sp, fontFamily = FontFamily.Monospace)
+                        Eyebrow("OFFLINE READY", color = Muted)
+                    }
+                    Box(Modifier.width(1.dp).height(43.dp).background(Hairline))
+                    Column(Modifier.weight(1f)) {
+                        Text(state.tracks.count { it.id in state.favorites }.toString().padStart(2, '0'), color = Magenta, fontSize = 22.sp, fontFamily = FontFamily.Monospace)
+                        Eyebrow("FAVOURITES", color = Muted)
+                    }
                 }
                 Row(Modifier.padding(top = 22.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("All", "Favourites", "Offline", "Local").forEach { label ->
@@ -364,7 +383,7 @@ private fun LibraryScreen(state: PlayerUiState, actions: PlayerActions, onAddSou
 
 @Composable
 private fun LibraryAction(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier, primary: Boolean) {
-    Row(modifier.clip(RoundedCornerShape(16.dp)).background(if (primary) Lime else PanelRaised).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 17.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+    Row(modifier.clip(CyberSmall).background(if (primary) Lime else PanelRaised).border(1.dp, if (primary) Lime else Hairline, CyberSmall).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 17.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         Icon(icon, null, tint = if (primary) Ink else Milk, modifier = Modifier.size(18.dp))
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (primary) Ink else Milk, modifier = Modifier.padding(start = 6.dp))
     }
@@ -374,15 +393,16 @@ private fun LibraryAction(label: String, icon: ImageVector, onClick: () -> Unit,
 private fun TrackRow(track: Track, state: PlayerUiState, actions: PlayerActions, queue: List<Track>, allowRemoval: Boolean = false) {
     val selected = state.playback.track?.id == track.id
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Lime.copy(.065f) else Color.Transparent)
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(CyberSmall)
+            .background(if (selected) Lime.copy(.075f) else Panel.copy(.4f))
+            .border(1.dp, if (selected) Lime.copy(.28f) else Color.Transparent, CyberSmall)
             .clickable { actions.onPlay(track, queue) }.testTag("track_${track.id}").padding(start = 8.dp, end = 2.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            AlbumArt(track, Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)))
+            AlbumArt(track, Modifier.size(52.dp).clip(CyberSmall))
             if (selected && state.playback.isPlaying) {
-                Box(Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)).background(Ink.copy(.42f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(52.dp).clip(CyberSmall).background(Ink.copy(.42f)), contentAlignment = Alignment.Center) {
                     Equalizer(!state.reduceMotion, Modifier.size(19.dp), Lime)
                 }
             }
@@ -396,7 +416,7 @@ private fun TrackRow(track: Track, state: PlayerUiState, actions: PlayerActions,
             }
         }
         IconButton(onClick = { actions.onToggleFavorite(track) }, modifier = Modifier.size(48.dp).testTag("favorite_${track.id}")) {
-            Icon(if (track.id in state.favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (track.id in state.favorites) "Remove ${track.title} from favourites" else "Favourite ${track.title}", tint = if (track.id in state.favorites) Lime else Muted, modifier = Modifier.size(20.dp))
+            Icon(if (track.id in state.favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (track.id in state.favorites) "Remove ${track.title} from favourites" else "Favourite ${track.title}", tint = if (track.id in state.favorites) Magenta else Muted, modifier = Modifier.size(20.dp))
         }
         if (allowRemoval && track.offlinePath != null) {
             RoundIcon(Icons.Rounded.DeleteOutline, "Remove download of ${track.title}", { actions.onRemoveDownload(track) }, Modifier.testTag("remove_download_${track.id}"))
@@ -424,10 +444,10 @@ private fun DownloadButton(track: Track, download: DownloadState?, onDownload: (
 @Composable
 private fun MiniPlayer(state: PlayerUiState, actions: PlayerActions, onExpand: () -> Unit) {
     val track = state.playback.track ?: return
-    Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(PanelRaised).border(1.dp, Hairline, RoundedCornerShape(18.dp)).testTag("mini_player")) {
+    Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp).fillMaxWidth().clip(CyberSmall).background(PanelRaised).border(1.dp, Cyan.copy(.4f), CyberSmall).testTag("mini_player")) {
         Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(onClick = onExpand).testTag("expand_player"), verticalAlignment = Alignment.CenterVertically) {
-                AlbumArt(track, Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)))
+            Row(Modifier.weight(1f).clip(CyberSmall).clickable(onClick = onExpand).testTag("expand_player"), verticalAlignment = Alignment.CenterVertically) {
+                AlbumArt(track, Modifier.size(44.dp).clip(CyberSmall))
                 Column(Modifier.padding(start = 11.dp)) {
                     Text(track.title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (state.playback.isBuffering) "Finding the signal…" else track.artist, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -447,7 +467,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
     val track = state.tracks.firstOrNull { it.id == playingTrack.id } ?: playingTrack
     val localSource = track.streamUri.startsWith("content:")
     var showQueue by rememberSaveable { mutableStateOf(false) }
-    val accent = Color(track.accent)
+    val accent = cyberAccent(track)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize().testTag("now_playing"), color = Ink) {
             Box(Modifier.fillMaxSize()) {
@@ -458,7 +478,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         RoundIcon(Icons.Rounded.KeyboardArrowDown, "Close player", onDismiss, Modifier.testTag("close_player"))
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Eyebrow(if (showQueue) "UP NEXT" else "NOW PLAYING")
+                            Eyebrow(if (showQueue) "UP NEXT / QUEUE" else "NOW PLAYING", color = Cyan)
                             Text(if (showQueue) "${state.playback.queue.size} tracks in your queue" else track.album.ifBlank { track.source }, fontSize = 11.sp, color = Milk, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                         }
                         RoundIcon(Icons.AutoMirrored.Rounded.QueueMusic, "${if (showQueue) "Hide" else "Show"} queue", { showQueue = !showQueue }, Modifier.testTag("toggle_queue"), tint = if (showQueue) Lime else Milk)
@@ -470,10 +490,10 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                     } else {
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Spacer(Modifier.height(24.dp))
-                            Box(Modifier.widthIn(max = 480.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
+                            Box(Modifier.widthIn(max = 440.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
                                 val orbit = motionPhase(state.playback.isPlaying && !state.reduceMotion, 45000)
-                                AlbumArt(track, Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)), phase = orbit * 360f)
-                                Box(Modifier.align(Alignment.TopStart).padding(18.dp).clip(RoundedCornerShape(20.dp)).background(Ink.copy(.65f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                AlbumArt(track, Modifier.fillMaxSize().clip(CyberPanel).border(1.dp, accent.copy(.55f), CyberPanel), phase = orbit * 360f)
+                                Box(Modifier.align(Alignment.TopStart).padding(18.dp).clip(CyberSmall).background(Ink.copy(.82f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                                     Text(when { track.isOffline -> "OFFLINE READY"; localSource -> "LOCAL SOURCE"; else -> "STEREO / ONLINE" }, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp, color = Milk)
                                 }
                             }
@@ -482,7 +502,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                                     Text(track.title, style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("current_track_title"))
                                     Text(track.artist, color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 7.dp))
                                 }
-                                RoundIcon(if (track.id in state.favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "${if (track.id in state.favorites) "Remove from" else "Add to"} favourites", { actions.onToggleFavorite(track) }, Modifier.testTag("player_favorite"), tint = if (track.id in state.favorites) Lime else Muted)
+                                RoundIcon(if (track.id in state.favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "${if (track.id in state.favorites) "Remove from" else "Add to"} favourites", { actions.onToggleFavorite(track) }, Modifier.testTag("player_favorite"), tint = if (track.id in state.favorites) Magenta else Muted)
                             }
                             val duration = (state.playback.durationMs.takeIf { it > 0L } ?: track.durationMs).coerceAtLeast(1L)
                             var seeking by remember(track.id) { mutableStateOf<Float?>(null) }
@@ -501,14 +521,14 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                             Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 RoundIcon(Icons.Rounded.Shuffle, if (state.playback.shuffle) "Disable shuffle" else "Enable shuffle", actions.onToggleShuffle, Modifier.testTag("shuffle"), tint = if (state.playback.shuffle) Lime else Muted)
                                 RoundIcon(Icons.Rounded.SkipPrevious, "Previous track", actions.onPrevious, Modifier.testTag("previous"), iconSize = 32)
-                                Box(Modifier.size(76.dp).clip(CircleShape).background(Lime).clickable(onClick = actions.onTogglePlay).testTag("play_pause").semantics { contentDescription = if (state.playback.isPlaying) "Pause" else "Play" }, contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(76.dp).clip(CyberPanel).background(Lime).clickable(onClick = actions.onTogglePlay).testTag("play_pause").semantics { contentDescription = if (state.playback.isPlaying) "Pause" else "Play" }, contentAlignment = Alignment.Center) {
                                     if (state.playback.isBuffering) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(32.dp)) else Icon(if (state.playback.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Ink, modifier = Modifier.size(35.dp))
                                 }
                                 RoundIcon(Icons.Rounded.SkipNext, "Next track", actions.onNext, Modifier.testTag("next"), iconSize = 32)
                                 RoundIcon(Icons.Rounded.Repeat, if (state.playback.repeat) "Disable repeat" else "Enable repeat", actions.onToggleRepeat, Modifier.testTag("repeat"), tint = if (state.playback.repeat) Lime else Muted)
                             }
                             state.playback.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("playback_error")) }
-                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().clip(CyberSmall).background(Panel).border(1.dp, Hairline, CyberSmall).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(if (track.isOffline) Icons.Rounded.OfflinePin else Icons.Rounded.GraphicEq, null, tint = Lime, modifier = Modifier.size(22.dp))
                                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                     Text(when { track.isOffline -> "Take it anywhere"; localSource -> "Your own sound"; else -> "Keep the feeling" }, fontSize = 13.sp, fontWeight = FontWeight.Medium)
@@ -530,10 +550,10 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
 private fun SettingsDialog(state: PlayerUiState, actions: PlayerActions, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Make yourself at home", style = MaterialTheme.typography.headlineMedium) },
+        title = { Column { Eyebrow("NIGHT SHIFT / PREFERENCES", color = Cyan); Text("Control room", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp)) } },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                Text("A quieter interface, if that’s your thing.", style = MaterialTheme.typography.bodyMedium, color = Muted)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                Text("Set the pace of your listening space.", style = MaterialTheme.typography.bodyMedium, color = Muted)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Reduce motion", color = Milk, fontWeight = FontWeight.Medium)
@@ -544,10 +564,14 @@ private fun SettingsDialog(state: PlayerUiState, actions: PlayerActions, onDismi
                 HorizontalDivider(color = Hairline)
                 Text("Your collection", color = Milk, fontWeight = FontWeight.SemiBold)
                 Text("Studio tracks are original CC0 samples. Imported files and permitted HTTPS audio can play without an account. Downloads stay on this device.", style = MaterialTheme.typography.bodySmall, color = Muted)
-                Text("Spotify opens separately and follows its account, subscription and regional availability requirements.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                Text("Spotify listening uses its existing account and service availability.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                TextButton(onClick = { onDismiss(); actions.onOpenSpotify("") }, modifier = Modifier.testTag("settings_spotify")) {
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp))
+                    Text("Spotify connection", modifier = Modifier.padding(start = 8.dp))
+                }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.testTag("close_settings")) { Text("Done") } },
         containerColor = Panel,
     )
 }
@@ -560,13 +584,13 @@ private fun AddSourceDialog(actions: PlayerActions, onDismiss: () -> Unit) {
     val validUrl = runCatching { java.net.URI(url.trim()).let { it.scheme.equals("https", true) && !it.host.isNullOrBlank() && it.userInfo == null } }.getOrDefault(false)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Bring your own sound") },
+        title = { Column { Eyebrow("LIBRARY / NEW SOURCE", color = Cyan); Text("Bring your sound", modifier = Modifier.padding(top = 8.dp)) } },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Add a direct HTTPS audio link from a source you’re allowed to use.", color = Muted, style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(title, { title = it }, label = { Text("Track name") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("stream_title"), shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(url, { url = it }, label = { Text("HTTPS audio URL") }, placeholder = { Text("https://example.com/audio.mp3") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), isError = url.isNotBlank() && !validUrl, modifier = Modifier.fillMaxWidth().testTag("stream_url"), shape = RoundedCornerShape(12.dp))
-                Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { permission = !permission }, verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(title, { title = it }, label = { Text("Track name") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("stream_title"), shape = CyberSmall)
+                OutlinedTextField(url, { url = it }, label = { Text("HTTPS audio URL") }, placeholder = { Text("https://example.com/audio.mp3") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), isError = url.isNotBlank() && !validUrl, modifier = Modifier.fillMaxWidth().testTag("stream_url"), shape = CyberSmall)
+                Row(Modifier.clip(CyberSmall).clickable { permission = !permission }, verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(permission, { permission = it }, modifier = Modifier.testTag("stream_permission"))
                     Text("I have permission to stream and download this audio.", style = MaterialTheme.typography.bodySmall, color = Milk)
                 }
@@ -583,46 +607,7 @@ private fun AddSourceDialog(actions: PlayerActions, onDismiss: () -> Unit) {
 
 @Composable
 internal fun AlbumArt(track: Track, modifier: Modifier = Modifier, phase: Float = 0f) {
-    val accent = Color(track.accent)
-    val seed = track.artworkSeed
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        drawRect(Brush.linearGradient(listOf(accent.copy(alpha = .8f), accent.copy(alpha = .2f), Color(0xFF11150F)), start = Offset(w, 0f), end = Offset(0f, h)))
-        val center = Offset(w * .52f, h * .5f)
-        when ((seed % 3 + 3) % 3) {
-            0 -> {
-                drawCircle(Brush.radialGradient(listOf(accent.copy(.7f), Color.Transparent), center, w * .5f), w * .5f, center)
-                rotate(-28f + phase * .12f, center) {
-                    repeat(26) { i ->
-                        val r = w * (.13f + i * .012f)
-                        drawOval(Color(0xFF182017).copy(alpha = .38f), Offset(center.x - r, center.y - r * .65f), Size(r * 2, r * 1.3f), style = Stroke(w * .0035f))
-                    }
-                    drawOval(Milk.copy(.7f), Offset(w * .22f, h * .31f), Size(w * .6f, h * .39f), style = Stroke(w * .006f))
-                }
-            }
-            1 -> {
-                repeat(22) { i ->
-                    val path = Path()
-                    val y = h * .22f + i * h * .026f
-                    path.moveTo(-w * .1f, y)
-                    path.cubicTo(w * .24f, y - h * .38f, w * .54f, y + h * .42f, w * 1.1f, y - h * .04f)
-                    drawPath(path, if (i % 4 == 0) Milk.copy(.75f) else Ink.copy(.3f), style = Stroke(w * .007f, cap = StrokeCap.Round))
-                }
-            }
-            else -> {
-                rotate(35f + phase * .06f, center) {
-                    repeat(9) { i ->
-                        val length = w * (.18f + i * .071f)
-                        drawRoundRect(if (i % 2 == 0) Ink.copy(.55f) else Milk.copy(.32f), Offset(center.x - length / 2, center.y - length / 2), Size(length, length), cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * .06f), style = Stroke(w * .016f))
-                    }
-                }
-            }
-        }
-        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Ink.copy(.25f))))
-        drawLine(Milk.copy(.4f), Offset(w * .08f, h * .9f), Offset(w * .22f, h * .9f), w * .003f)
-        drawCircle(Milk.copy(.7f), w * .009f, Offset(w * .88f, h * .11f))
-    }
+    CyberCover(track, modifier, phase)
 }
 
 @Composable
@@ -648,8 +633,11 @@ private fun Equalizer(animate: Boolean, modifier: Modifier, color: Color) {
 @Composable
 private fun SectionHeading(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-        Eyebrow(subtitle, Modifier.padding(top = 5.dp), Muted)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow(subtitle, color = Cyan)
+            Box(Modifier.padding(start = 12.dp).weight(1f).height(1.dp).background(Hairline))
+        }
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 7.dp).semantics { heading() })
     }
 }
 
@@ -660,14 +648,14 @@ private fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color = 
 
 @Composable
 private fun FilterPill(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp)).background(if (selected) Lime else PanelRaised).clickable(onClick = onClick).semantics { this.selected = selected; role = Role.Tab }.padding(horizontal = 18.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.heightIn(min = 48.dp).clip(CyberSmall).background(if (selected) Lime else PanelRaised).border(1.dp, if (selected) Lime else Hairline, CyberSmall).clickable(onClick = onClick).semantics { this.selected = selected; role = Role.Tab }.padding(horizontal = 18.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
         Text(label, fontSize = 12.sp, color = if (selected) Ink else Milk, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
     }
 }
 
 @Composable
 private fun RoundIcon(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, filled: Boolean = false, tint: Color = Milk, iconSize: Int = 23) {
-    IconButton(onClick, modifier.size(48.dp).then(if (filled) Modifier.background(Panel, CircleShape) else Modifier)) {
+    IconButton(onClick, modifier.size(48.dp).then(if (filled) Modifier.background(Panel, CyberSmall).border(1.dp, Hairline, CyberSmall) else Modifier)) {
         Icon(icon, label, tint = tint, modifier = Modifier.size(iconSize.dp))
     }
 }
@@ -675,7 +663,7 @@ private fun RoundIcon(icon: ImageVector, label: String, onClick: () -> Unit, mod
 @Composable
 private fun EmptyState(icon: ImageVector, title: String, detail: String, action: String, onAction: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(72.dp).background(PanelRaised, RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Lime, modifier = Modifier.size(30.dp)) }
+        Box(Modifier.size(72.dp).background(PanelRaised, CyberPanel).border(1.dp, Cyan.copy(.4f), CyberPanel), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Lime, modifier = Modifier.size(30.dp)) }
         Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp), color = Milk)
         Text(detail, style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         TextButton(onClick = onAction, modifier = Modifier.padding(top = 10.dp)) { Text(action); Icon(Icons.Rounded.ArrowOutward, null, modifier = Modifier.padding(start = 8.dp).size(16.dp)) }
