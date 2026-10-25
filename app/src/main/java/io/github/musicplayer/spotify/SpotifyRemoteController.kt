@@ -161,11 +161,10 @@ class SpotifyRemoteController(context: Context, private val config: SpotifyConfi
                     if (closed) { SpotifyAppRemote.disconnect(appRemote); return }
                     scope.launch {
                         if (attempt != generation || !foreground) {
+                            // Invalidate before disconnect: an SDK failure callback from this
+                            // released attempt must not cancel a later foreground reconnect.
+                            if (attempt == generation) releaseConnection()
                             SpotifyAppRemote.disconnect(appRemote)
-                            if (attempt == generation) {
-                                connectionTimeout?.cancel()
-                                _state.update { it.copy(connecting = false) }
-                            }
                             return@launch
                         }
                         connectionTimeout?.cancel()
