@@ -488,19 +488,27 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                             items(state.playback.queue, key = { it.id }) { TrackRow(it, state, actions, state.playback.queue) }
                         }
                     } else {
-                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Spacer(Modifier.height(24.dp))
-                            Box(Modifier.widthIn(max = 440.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                            // Measure the bounded viewport before scrolling; reserve room for transport.
+                            val artworkSize = minOf(
+                                (maxWidth - 48.dp).coerceAtLeast(112.dp),
+                                maxHeight * .46f,
+                                (maxHeight - 280.dp).coerceAtLeast(112.dp),
+                                440.dp,
+                            )
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(12.dp))
+                            Box(Modifier.size(artworkSize), contentAlignment = Alignment.Center) {
                                 val orbit = motionPhase(state.playback.isPlaying && !state.reduceMotion, 45000)
                                 AlbumArt(track, Modifier.fillMaxSize().clip(CyberPanel).border(1.dp, accent.copy(.55f), CyberPanel), phase = orbit * 360f)
                                 Box(Modifier.align(Alignment.TopStart).padding(18.dp).clip(CyberSmall).background(Ink.copy(.82f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                    Text(when { track.isOffline -> "OFFLINE READY"; localSource -> "LOCAL SOURCE"; else -> "STEREO / ONLINE" }, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp, color = Milk)
+                                    Text(when { track.isOffline -> "OFFLINE READY"; localSource -> "LOCAL SOURCE"; else -> "ONLINE AUDIO" }, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp, color = Milk)
                                 }
                             }
-                            Row(Modifier.fillMaxWidth().padding(top = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(track.title, style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("current_track_title"))
-                                    Text(track.artist, color = Muted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 7.dp))
+                                    Text(track.artist, color = Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
                                 }
                                 RoundIcon(if (track.id in state.favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "${if (track.id in state.favorites) "Remove from" else "Add to"} favourites", { actions.onToggleFavorite(track) }, Modifier.testTag("player_favorite"), tint = if (track.id in state.favorites) Magenta else Muted)
                             }
@@ -512,16 +520,16 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                                 onValueChangeFinished = { seeking?.let { actions.onSeek(it.toLong()) }; seeking = null },
                                 valueRange = 0f..duration.toFloat(),
                                 colors = SliderDefaults.colors(thumbColor = Lime, activeTrackColor = Lime, inactiveTrackColor = Hairline),
-                                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).testTag("seek_slider").semantics { contentDescription = "Playback position" },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("seek_slider").semantics { contentDescription = "Playback position" },
                             )
                             Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(timeLabel(seeking?.toLong() ?: state.playback.positionMs), color = Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                                Text(timeLabel(duration), color = Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                                Text(timeLabel(seeking?.toLong() ?: state.playback.positionMs), color = Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 16.sp)
+                                Text(timeLabel(duration), color = Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 16.sp)
                             }
-                            Row(Modifier.fillMaxWidth().padding(vertical = 22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 RoundIcon(Icons.Rounded.Shuffle, if (state.playback.shuffle) "Disable shuffle" else "Enable shuffle", actions.onToggleShuffle, Modifier.testTag("shuffle"), tint = if (state.playback.shuffle) Lime else Muted)
                                 RoundIcon(Icons.Rounded.SkipPrevious, "Previous track", actions.onPrevious, Modifier.testTag("previous"), iconSize = 32)
-                                Box(Modifier.size(76.dp).clip(CyberPanel).background(Lime).clickable(onClick = actions.onTogglePlay).testTag("play_pause").semantics { contentDescription = if (state.playback.isPlaying) "Pause" else "Play" }, contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(72.dp).clip(CyberPanel).background(Lime).clickable(onClick = actions.onTogglePlay).testTag("play_pause").semantics { contentDescription = if (state.playback.isPlaying) "Pause" else "Play" }, contentAlignment = Alignment.Center) {
                                     if (state.playback.isBuffering) CircularProgressIndicator(color = Ink, strokeWidth = 2.dp, modifier = Modifier.size(32.dp)) else Icon(if (state.playback.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Ink, modifier = Modifier.size(35.dp))
                                 }
                                 RoundIcon(Icons.Rounded.SkipNext, "Next track", actions.onNext, Modifier.testTag("next"), iconSize = 32)
@@ -538,6 +546,7 @@ private fun NowPlaying(state: PlayerUiState, actions: PlayerActions, onDismiss: 
                             }
                             state.downloads[track.id]?.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) }
                             Text(track.source + if (track.license.isNotBlank()) " · ${track.license}" else "", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 18.dp, bottom = 24.dp))
+                            }
                         }
                     }
                 }
