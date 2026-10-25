@@ -302,12 +302,21 @@ class PlayerJourneyTest {
         val wasDrawingEnabled = HardwareRendererCompat.isDrawingEnabled()
         try {
             HardwareRendererCompat.setDrawingEnabled(true)
-            // A recreated Activity may still have its first native buffer pending while
-            // Compose already exposes a Dialog's semantics. Present the parent window
-            // first so WindowManager can also reveal its attached Dialog surface.
-            lateinit var activityRoot: View
-            compose.activityRule.scenario.onActivity { activityRoot = it.window.decorView }
-            awaitRenderedWindow(activityRoot)
+            lateinit var activityWindow: View
+            var separateWindow = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val activity = requireNotNull(ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).filterIsInstance<MainActivity>().singleOrNull()) {
+                    "No resumed MainActivity hosts screenshot $name"
+                }
+                activityWindow = activity.window.decorView
+                separateWindow = root.rootView !== activityWindow.rootView
+            }
+            // After a font-scale recreation, WindowManager may retain the previous Activity
+            // buffer until the new base window draws. Rendering only an already-open Dialog
+            // does not release that configuration-change freeze. Submit the resumed Activity
+            // first, then the exact visible window; a single Activity window needs one flush.
+            if (separateWindow) awaitRenderedWindow(activityWindow)
             awaitRenderedWindow(root)
             captureScreenshot(name)
         } finally {

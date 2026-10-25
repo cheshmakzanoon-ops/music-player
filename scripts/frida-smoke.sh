@@ -75,21 +75,19 @@ timeout 30 "${device_adb[@]}" wait-for-device
 [[ "$("${device_adb[@]}" shell id -u | tr -d '\r')" == 0 ]]
 "${device_adb[@]}" push "$FRIDA_WORK/frida-server" "$remote_server"
 "${device_adb[@]}" shell chmod 755 "$remote_server"
-remote_pid="$("${device_adb[@]}" shell "$remote_server -l 127.0.0.1:27043 </dev/null >$remote_log 2>&1 & echo \$!" | tr -d '\r')"
+remote_pid="$("${device_adb[@]}" shell "$remote_server -l 127.0.0.1:27042 </dev/null >$remote_log 2>&1 & echo \$!" | tr -d '\r')"
 [[ "$remote_pid" =~ ^[0-9]+$ ]]
 sleep 1
 "${device_adb[@]}" shell kill -0 "$remote_pid"
 "${device_adb[@]}" shell am force-stop "$APP_ID"
 
 # -q uses the CLI's bundled Java bridge; this is not a bare frida-core script.
-# Select this exact ADB device so the agent uses Frida's direct DBus transport.
-# Frida 17.24.3's -H WebSocket path closes on the bundled Java bridge's size:
-# https://github.com/frida/frida/issues/3806
-# The backend endpoint override preserves the loopback-only server on port 27043.
 # The CLI timeout bounds observation; the outer timeout also bounds connection.
+# Select the exact ADB device: its direct agent transport avoids the Frida
+# 17.24.3 -H WebSocket message-size regression when loading the Java bridge.
+# Upstream: https://github.com/frida/frida/issues/3806
 timeout --kill-after=5s 35s "$FRIDA_WORK/venv/bin/frida" \
-    -D "$serial" --device-option 'control-endpoint=(string)tcp:27043' \
-    -f "$APP_ID" -l scripts/frida-observe.js \
+    -D "$serial" -f "$APP_ID" -l scripts/frida-observe.js \
     -q --timeout 15 --exit-on-error --kill-on-exit --no-auto-reload \
     2>&1 | tee ci-artifacts/frida-smoke.txt
 grep -qx 'MUSIC_PLAYER_FRIDA_MAIN_ACTIVITY_RESUMED' ci-artifacts/frida-smoke.txt
