@@ -21,6 +21,21 @@ registration in the Spotify developer dashboard. Changing the ID securely
 disconnects the previous catalogue session. The App Remote SDK continues to
 need separate build-time configuration.
 
+### Latest verified build: v0.4.0
+
+**[Android validation run 40217027319](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319)**
+passed for source [c76cb6a](https://github.com/cheshmakzanoon-ops/music-player/commit/c76cb6a423bb30a129536cff20f46a44994e99cd):
+Gradle build/JVM tests/lint, **22 Android 8 emulator tests**, **23 Android 15
+emulator tests**, and Frida's Android 15 activity-lifecycle smoke check.
+The new emulator tests verify in-app Client ID entry and save, persistence,
+reset, and Keystore-encrypted token isolation across different Client IDs.
+
+**[Download the verified v0.4.0 APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319/artifacts/12607228735)**
+and extract `debug/app-debug.apk`. This is a development-signed test APK; it is
+not a store release. The Spotify service did not authorize an account in CI,
+so real Spotify catalogue/playback access remains an integration task.
+[v0.4.0 emulator evidence](docs/VERIFICATION.md#version-040--runtime-spotify-configuration).
+
 ## Catalogue-enabled build — 2026-10-25
 
 **Version 0.3.0** passed the complete [Spotify catalogue integration workflow](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097)

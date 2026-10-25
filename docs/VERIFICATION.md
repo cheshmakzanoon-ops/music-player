@@ -184,3 +184,40 @@ The debug certificate changes across fresh Actions builds; register the
 fingerprint of the **actual APK installed** when setting up App Remote.
 Live Spotify access still requires the registered public Client ID and a
 Spotify-authorized user; it is not included in this test APK.
+
+## Version 0.4.0 — runtime Spotify configuration
+
+**[GitHub Actions run 40217027319](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319)**
+verified the pushed [source commit `c76cb6a`](https://github.com/cheshmakzanoon-ops/music-player/commit/c76cb6a423bb30a129536cff20f46a44994e99cd)
+on `main` with all three jobs passing on October 25, 2026.
+
+| Check | Actual result | Evidence |
+| --- | --- | --- |
+| Build, Kotlin/JVM tests, Android lint | **Passed** | [Build reports](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319/artifacts/12607263683) |
+| Android 8 (API 26, x86-64) | **22/22 instrumentation tests passed** | [Emulator evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319/artifacts/12607708741) |
+| Android 15 (API 35, x86-64) | **23/23 instrumentation tests passed** | [Emulator evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319/artifacts/12608207890) |
+| Frida on Android 15 | **Passed**; observed reconstructed MainActivity resume | API 35 job logs |
+| Installable v0.4.0 app (version code 4) | **Built and uploaded** as `debug/app-debug.apk` | [Validation APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319/artifacts/12607228735) |
+
+This release no longer requires a new APK build solely to enter a **public
+Spotify developer Client ID**. On the Search screen or Spotify connection
+screen, users can enter a valid 32-hex-character ID and save it in private
+preferences. It survives a new controller instance, can be reset, and overrides
+the optional CI-build default. Changing IDs invalidates the previous catalogue
+session and clears tokens. Android Keystore test coverage now asserts that
+credentials encrypted for Client ID A cannot be reused for Client ID B.
+
+The additional instrumentation tests cover the configuration UI (valid vs
+invalid IDs), real app configuration persistence/removal, and token isolation.
+This is **not** proof of a Spotify-authorized live search, playback or offline
+download. As with v0.3.0, the workflow has no registered Spotify credentials,
+Spotify user authorization or commercial audio rights. Download entitlements
+and country availability remain enforced by Spotify. Register
+`http://127.0.0.1/callback` in the Spotify developer dashboard before
+authorizing the catalogue, then separately set up App Remote and its fingerprint
+if Spotify playback controls are required.
+
+The `validation-apks` artifact is a ZIP; its published GitHub digest refers to
+that ZIP, not the extracted `app-debug.apk`. No unmeasured APK checksum or
+signing-certificate fingerprint is asserted here. GitHub retains these
+workflow artifacts for a limited time.
