@@ -81,6 +81,7 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("hero_play").assertIsDisplayed()
         screenshot("01-discover", "hero_play")
         compose.onNodeWithTag("nav_search").performClick()
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("search_input"))
         compose.onNodeWithTag("search_input").performTextInput("night")
         compose.onNodeWithTag("search_input").performImeAction()
         compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("track_night-drive"))
@@ -117,6 +118,7 @@ class PlayerJourneyTest {
             compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_catalog_unconfigured"))
             compose.onNodeWithTag("spotify_catalog_unconfigured").assertExists()
         }
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("search_input"))
         compose.onNodeWithTag("search_input").performTextInput("night")
         compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("track_night-drive"))
         compose.onNodeWithTag("track_night-drive").assertExists()
