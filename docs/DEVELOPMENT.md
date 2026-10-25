@@ -39,7 +39,7 @@ verification limits are documented in [SPOTIFY_CONNECTION.md](SPOTIFY_CONNECTION
 
 - Local debug app and instrumentation APK builds, eight JVM tests and Android lint
   passed after integrating the supported Spotify connection. Lint reported zero
-  errors and 19 warnings, primarily dependency update/style notices, backup rules
+  errors; remaining warnings concerned dependency update/style notices, backup rules
   and the exported media service. The service admits same-UID or trusted controllers.
 - The optimized release build, including R8 shrinking, also passed. Its APK is
   unsigned; no production signing key has been created or published.

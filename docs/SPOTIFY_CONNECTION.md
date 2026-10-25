@@ -29,18 +29,26 @@ independent Spotify download manager.
 ## Configure your registered Spotify application
 
 1. Register an Android application in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-2. Register package **`io.github.musicplayer`** and the SHA-1 signing-certificate
-   fingerprint of the APK you will install. Debug and release signing identities
-   differ; a newly generated CI debug keystore can also have a different identity.
-3. Register an HTTPS redirect URI you control. Use the exact same value below.
-4. Add repository **Actions variables** named `SPOTIFY_CLIENT_ID` and
+2. Register package **`io.github.musicplayer`** and an HTTPS redirect URI you
+   control. Use the exact same redirect value below.
+3. Add repository [**Actions variables**](https://github.com/cheshmakzanoon-ops/music-player/settings/variables/actions) named `SPOTIFY_CLIENT_ID` and
    `SPOTIFY_REDIRECT_URI`. These are public application identifiers, not secrets.
    The workflow already passes them to Gradle. **Do not provide or embed a client
    secret.**
-5. Rebuild, install the app alongside the official Spotify app, open **Settings →
+4. Run [Android validation](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
+   with those variables, then download its `validation-apks` artifact. Extract
+   `debug/app-debug.apk`, inspect that APK's SHA-1 with the command below, and
+   register that exact fingerprint in the Spotify dashboard.
+5. Install **that same APK** alongside the official Spotify app, open **Settings →
    Spotify connection**, and select **Connect with Spotify**. Spotify presents its
    own authorization flow. An existing Spotify session may be reused; the player
    does not implement a Google signup flow.
+
+Debug and release signing identities differ. A new CI run can generate a different
+debug identity, so rebuilding after fingerprint registration can require registering
+the new APK's fingerprint. For repeatable distribution, use your own persistent
+signing identity and register its certificate; keep its private key outside the
+repository.
 
 For local builds, the equivalent Gradle properties are:
 
@@ -53,7 +61,7 @@ For local builds, the equivalent Gradle properties are:
 Inspect the certificate fingerprint of the actual APK before registering it:
 
 ```sh
-apksigner verify --print-certs app/build/outputs/apk/debug/app-debug.apk
+apksigner verify --print-certs path/to/the/actual/app-debug.apk
 ```
 
 The build intentionally stays usable if these identifiers are absent. The
@@ -62,7 +70,7 @@ unaffected. No production identifiers were supplied for this implementation.
 
 ## Lifecycle and data handling
 
-- Connection starts only after an explicit user action. Opening the app or
+- The first connection starts only after an explicit user action. Opening the app or
   connection screen does not start authorization.
 - The SDK binding and subscriptions are released when the activity moves to the
   background. Spotify remains responsible for any continuing Spotify audio.
@@ -71,7 +79,7 @@ unaffected. No production identifiers were supplied for this implementation.
   automatic reconnection.
 - An in-progress native authorization handoff is allowed to finish, with stale
   callbacks discarded and any background connection immediately released.
-- Local playback pauses Spotify through the supported API; explicit Spotify
+- While connected, local playback pauses Spotify through the supported API; explicit Spotify
   playback pauses the local player. No private service endpoints are called.
 - Spotify track art comes from the supported Images API and is displayed intact.
   It is not bundled as original artwork or used in the local audio catalogue.
