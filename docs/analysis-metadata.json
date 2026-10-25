@@ -1,0 +1,290 @@
+{
+  "analysis_date": "2026-10-25",
+  "method": "static; no APK execution or service requests",
+  "outer_apk": {
+    "bytes": 153583820,
+    "sha256": "53ed2e463c712db03a23bc4a06ba08d5d9b033e4b9ea0928032f08413016fd0e",
+    "zip_entries": 4866,
+    "declared_uncompressed_bytes": 351606462,
+    "dex_files": [
+      {
+        "name": "classes.dex",
+        "bytes": 11024
+      }
+    ],
+    "native_library_files": 48,
+    "native_abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "native_library_names": [
+      "libandroidx.graphics.path.so",
+      "libcomScore.so",
+      "libcrashlytics-common.so",
+      "libcrashlytics-handler.so",
+      "libcrashlytics-trampoline.so",
+      "libcrashlytics.so",
+      "libimage_processing_util_jni.so",
+      "liborbit-jni-spotify.so",
+      "librootChecker.so",
+      "libsurface_util_jni.so",
+      "libtensorflowlite_gpu_jni.so",
+      "libtensorflowlite_jni.so"
+    ],
+    "resource_entries": 4742,
+    "asset_entries": 17,
+    "lspatch_entries": [
+      "assets/lspatch/config.json",
+      "assets/lspatch/loader.dex",
+      "assets/lspatch/modules/sb.adjkxjw.apk",
+      "assets/lspatch/origin.apk",
+      "assets/lspatch/so/arm64-v8a/liblspatch.so",
+      "assets/lspatch/so/armeabi-v7a/liblspatch.so",
+      "assets/lspatch/so/x86/liblspatch.so",
+      "assets/lspatch/so/x86_64/liblspatch.so"
+    ],
+    "signature": {
+      "verification_succeeded": true,
+      "v2": false,
+      "v3": true,
+      "source_stamp": false,
+      "signer_dn": "CN=IN",
+      "signer_sha256": "1da5e08fffa51acf0ae1cab33b0878b3a386557a2de4d698cb65d9c722ea6d55"
+    }
+  },
+  "embedded_original": {
+    "bytes": 148402442,
+    "sha256": "e8d8c7316619a63bd8a314d51f389feac9db70d62234b0da87a1b75b08ae85d2",
+    "zip_entries": 4870,
+    "declared_uncompressed_bytes": 277688894,
+    "dex_files": [
+      {
+        "name": "classes.dex",
+        "bytes": 9512776,
+        "class_count": 9190
+      },
+      {
+        "name": "classes10.dex",
+        "bytes": 4896064,
+        "class_count": 5712
+      },
+      {
+        "name": "classes11.dex",
+        "bytes": 55376,
+        "class_count": 66
+      },
+      {
+        "name": "classes12.dex",
+        "bytes": 478260,
+        "class_count": 540
+      },
+      {
+        "name": "classes13.dex",
+        "bytes": 60312,
+        "class_count": 62
+      },
+      {
+        "name": "classes2.dex",
+        "bytes": 10149668,
+        "class_count": 7838
+      },
+      {
+        "name": "classes3.dex",
+        "bytes": 7573320,
+        "class_count": 9670
+      },
+      {
+        "name": "classes4.dex",
+        "bytes": 7355440,
+        "class_count": 9125
+      },
+      {
+        "name": "classes5.dex",
+        "bytes": 8861520,
+        "class_count": 11266
+      },
+      {
+        "name": "classes6.dex",
+        "bytes": 8453696,
+        "class_count": 11605
+      },
+      {
+        "name": "classes7.dex",
+        "bytes": 8913112,
+        "class_count": 8886
+      },
+      {
+        "name": "classes8.dex",
+        "bytes": 8094780,
+        "class_count": 9969
+      },
+      {
+        "name": "classes9.dex",
+        "bytes": 8804620,
+        "class_count": 11422
+      }
+    ],
+    "native_library_files": 48,
+    "native_abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "native_library_names": [
+      "libandroidx.graphics.path.so",
+      "libcomScore.so",
+      "libcrashlytics-common.so",
+      "libcrashlytics-handler.so",
+      "libcrashlytics-trampoline.so",
+      "libcrashlytics.so",
+      "libimage_processing_util_jni.so",
+      "liborbit-jni-spotify.so",
+      "librootChecker.so",
+      "libsurface_util_jni.so",
+      "libtensorflowlite_gpu_jni.so",
+      "libtensorflowlite_jni.so"
+    ],
+    "resource_entries": 4742,
+    "asset_entries": 9,
+    "lspatch_entries": [],
+    "signature": {
+      "verification_succeeded": true,
+      "v2": true,
+      "v3": true,
+      "source_stamp": true,
+      "signer_dn": "CN=Spotify, OU=Android, O=Spotify, L=Stockholm, ST=Stockholm, C=SE",
+      "signer_sha256": "6505b181933344f93893d586e399b94616183f04349cb572a9e81a3335e28ffd"
+    }
+  },
+  "manifest": {
+    "package": "com.spotify.music",
+    "version_name": "9.1.78.2215",
+    "version_code": "145505425",
+    "sdk": {
+      "minSdkVersion": "24",
+      "targetSdkVersion": "37"
+    },
+    "application_class": "com.spotify.music.SpotifyApplication",
+    "component_counts": {
+      "provider": 9,
+      "receiver": 36,
+      "activity": 86,
+      "service": 39,
+      "activity-alias": 4
+    },
+    "permission_count": 55,
+    "notable_components": [
+      "com.spotify.music.SpotifyMainActivity",
+      "com.spotify.mediabrowserservice.medialibraryservice.SpotifyMediaLibraryService",
+      "com.spotify.collection.downloaded.service.OffliningService",
+      "com.spotify.login.loginflowimpl.DelegatingLoginActivity",
+      "com.spotify.login.loginflowimpl.LoginActivity",
+      "com.spotify.login.loginflowimpl.QuickLoginActivity",
+      "com.spotify.login.phonenumbersignup.callingcode.CallingCodePickerActivity",
+      "com.spotify.musicappplatform.offlineerrors.OfflineDeviceLimitReachedActivity",
+      "com.spotify.interapp.service.service.AppProtocolRemoteService"
+    ]
+  },
+  "dex": {
+    "defined_classes": 95351,
+    "class_prefix_counts": {
+      "com.spotify.": 9114,
+      "androidx.compose.": 32,
+      "androidx.media3.": 225,
+      "com.google.android.exoplayer2.": 0,
+      "com.airbnb.epoxy.": 0,
+      "com.airbnb.lottie.": 1,
+      "com.facebook.": 19,
+      "okhttp3.": 3,
+      "retrofit2.": 2,
+      "io.reactivex.": 1220,
+      "p.": 80906
+    },
+    "native_bridge_classes": [
+      "com.spotify.cosmos.cosmosimpl.NativeLifetime",
+      "com.spotify.cosmos.cosmosimpl.NativeRouter",
+      "com.spotify.playbacknative.AudioRenderer",
+      "com.spotify.playbacknative.AudioDriver",
+      "com.spotify.playbacknative.AudioTrackAdapter",
+      "com.spotify.playbacknative.MediaCodecFileDecompressor",
+      "com.spotify.playbacknative.OboeRenderer"
+    ],
+    "url_hosts_observed_in_strings": [
+      "about-recommendations.spotify.com",
+      "accounts.spotify.com",
+      "ads-privacy-center.spotify.com",
+      "adshelp.spotify.com",
+      "age-assurance.spotify.com",
+      "ai-playlist.spotifycdn.com",
+      "app-version-sunsetting-cdn.spotifycdn.com",
+      "apresolve.spotify.com",
+      "artists.spotify.com",
+      "audiobooks.spotify.com",
+      "auth-callback.spotify.com",
+      "c.spotify.com",
+      "cdn-spotify-gen-alpha.spotifycdn.com",
+      "checkout.spotifycdn.com",
+      "contentreporting.spotify.com",
+      "dj-earcons.spotifycdn.com",
+      "ghe.spotify.net",
+      "i.scdn.co",
+      "image-cdn.spotifycdn.com",
+      "learning-public-assets-cdn.spotifycdn.com",
+      "message-editor.scdn.co",
+      "misc.scdn.co",
+      "misc.spotifycdn.com",
+      "mosaic.scdn.co",
+      "nftonboarding-images.scdn.co",
+      "open.spotify.com",
+      "open.spotifycdn.com",
+      "p.scdn.co",
+      "partner-account-linking-cdn.spotifycdn.com",
+      "partner-accounts.spotify.com",
+      "partnerapi.spotify.net",
+      "party.spotify.com",
+      "payments.spotify.com",
+      "paymentsdk.spotifycdn.com",
+      "pickasso.spotifycdn.com",
+      "pme-config.spotifycdn.com",
+      "puffin-files.spotifycdn.com",
+      "r.spotify.com",
+      "scannables.scdn.co",
+      "shareables.scdn.co",
+      "sharing-assets.spotifycdn.com",
+      "spclient.wg.spotify.com",
+      "sponsored-recommendations.spotify.com",
+      "spotify-tap.spotifycdn.com",
+      "spotify.com",
+      "support.spotify.com",
+      "t.scdn.co",
+      "trending-near-you-cdn.spotifycdn.com",
+      "wear.spotifycdn.com",
+      "wgint.spotify.net",
+      "www.spotify.com",
+      "wwwcheckout.spotifycdn.com",
+      "wwwmarketing.scdn.co"
+    ],
+    "url_host_note": "Static strings only: not evidence that hosts are active, accessible, supported public APIs, or contacted during a given flow."
+  },
+  "native_orbit_bridge": {
+    "abi": "x86_64",
+    "bytes": 27373800,
+    "sha256": "36ed3584b42137ffcb22d90754c77eeaa1cd8d52db46f44b6fe7337d245e0c65",
+    "elf_class": "ELF64",
+    "machine": "Advanced Micro Devices X86-64",
+    "dependencies": [
+      "libandroid.so",
+      "liblog.so",
+      "libOpenSLES.so",
+      "libmediandk.so",
+      "libm.so",
+      "libdl.so",
+      "libc.so"
+    ],
+    "exports_jni_onload": true,
+    "scope": "ELF header, dynamic dependencies and symbol inventory only; not a reconstruction of native playback or a server implementation."
+  }
+}
