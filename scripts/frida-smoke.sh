@@ -91,7 +91,7 @@ host_port="$("${device_adb[@]}" forward tcp:0 tcp:27043 | tr -d '\r')"
 # The CLI timeout bounds observation; the outer timeout also bounds connection.
 timeout --kill-after=5s 35s "$FRIDA_WORK/venv/bin/frida" \
     -H "127.0.0.1:$host_port" -f "$APP_ID" -l scripts/frida-observe.js \
-    --quiet --timeout 15 --exit-on-error --kill-on-exit --no-auto-reload \
+    -q --timeout 15 --exit-on-error --kill-on-exit --no-auto-reload \
     2>&1 | tee ci-artifacts/frida-smoke.txt
 grep -qx 'MUSIC_PLAYER_FRIDA_MAIN_ACTIVITY_RESUMED' ci-artifacts/frida-smoke.txt
 echo 'Frida smoke passed: rebuilt MainActivity resumed under observation.'
