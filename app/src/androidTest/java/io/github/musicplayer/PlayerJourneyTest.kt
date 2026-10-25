@@ -50,6 +50,8 @@ class PlayerJourneyTest {
             device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             stopPlayerAndAwaitTeardown()
             context.getSharedPreferences("appearance", 0).edit().clear().putBoolean("reduce_motion", true).commit()
+            context.getSharedPreferences("spotify-catalog-settings", 0).edit().clear().commit()
+            context.getSharedPreferences("spotify-catalog-credentials", 0).edit().clear().commit()
             context.getSharedPreferences("music-library", 0).edit().clear().commit()
             context.getSharedPreferences("player-session", 0).edit().clear().commit()
         }
@@ -124,6 +126,38 @@ class PlayerJourneyTest {
         compose.onNodeWithTag("track_night-drive").assertExists()
         assertFalse(model.spotifyCatalog.state.value.authorizing)
         assertNull(model.spotifyCatalog.state.value.error)
+    }
+
+    @Test
+    fun publicSpotifyClientIdPersistsWithoutARebuildAndCanBeRemoved() {
+        val clientId = "0123456789abcdef0123456789abcdef"
+        compose.onNodeWithTag("nav_search").performClick()
+        if (!model.spotifyCatalog.state.value.configured) {
+            compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_client_id_field"))
+            compose.onNodeWithTag("spotify_client_id_field").performTextInput(clientId)
+            compose.onNodeWithTag("spotify_client_id_save").assertIsEnabled().performClick()
+        } else {
+            // A CI-supplied ID may be compiled into the APK; a runtime override still wins.
+            assertTrue(model.spotifyCatalog.setClientId(clientId))
+        }
+        compose.waitUntil(5_000) { model.spotifyCatalog.state.value.clientId == clientId }
+        assertTrue(model.spotifyCatalog.state.value.clientIdOverridden)
+        assertFalse(model.spotifyCatalog.state.value.authorized)
+
+        // A new controller loads the saved public ID, without contacting Spotify.
+        val restored = io.github.musicplayer.spotify.SpotifyCatalogController(context, "")
+        try {
+            assertEquals(clientId, restored.state.value.clientId)
+            assertTrue(restored.state.value.configured)
+            assertFalse(restored.state.value.authorized)
+        } finally { restored.close() }
+
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_client_id_reset"))
+        compose.onNodeWithTag("spotify_client_id_reset").performClick()
+        compose.waitUntil(5_000) { !model.spotifyCatalog.state.value.clientIdOverridden }
+        assertFalse(model.spotifyCatalog.state.value.authorized)
+        compose.onNodeWithTag("nav_home").performClick()
+        compose.onNodeWithTag("hero_play").assertExists()
     }
 
     @Test

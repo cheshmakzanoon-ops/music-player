@@ -34,6 +34,8 @@ data class PlayerActions(
     val onOpenSpotify: (String) -> Unit = {},
     val onAuthorizeSpotifyCatalog: () -> Unit = {},
     val onDisconnectSpotifyCatalog: () -> Unit = {},
+    val onSetSpotifyCatalogClientId: (String) -> Unit = {},
+    val onResetSpotifyCatalogClientId: () -> Unit = {},
     val onSearchSpotifyCatalog: (String) -> Unit = {},
     val onSelectSpotifyResult: (SpotifyCatalogItem) -> Unit = {},
     val onReduceMotion: (Boolean) -> Unit = {},

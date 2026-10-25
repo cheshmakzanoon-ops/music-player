@@ -38,17 +38,28 @@ independent Spotify download manager.
    URIs. Spotify explicitly permits changing the port on a loopback IP literal
    for each authorization. NIGHT SHIFT starts a temporary listener on a randomly
    assigned local port and supplies that complete URL to Spotify.
-3. Set the public `SPOTIFY_CLIENT_ID` [Actions variable](https://github.com/cheshmakzanoon-ops/music-player/settings/variables/actions).
-   **Never embed a client secret.** Catalogue search needs neither an external
-   callback server nor the Spotify Android app. App Remote playback controls
-   require separate configuration below.
-4. Install a configured APK, open **Search → Connect Spotify catalogue** (or
-   Settings → Spotify connection → Connect catalogue), and authorize in the
-   browser. Return to NIGHT SHIFT and search for tracks, albums and artists.
+3. Install NIGHT SHIFT v0.4.0+ and open **Search → Spotify catalogue**. Enter
+   your app's **public 32-character Client ID** and choose **Save Client ID**.
+   The value is stored in this device's private app preferences. You can change
+   or remove it later, without compiling another APK. **Never paste a client
+   secret.** The public `SPOTIFY_CLIENT_ID` [Actions variable](https://github.com/cheshmakzanoon-ops/music-player/settings/variables/actions)
+   remains an optional build-time default for managed distributions.
+4. Choose **Connect Spotify catalogue**, approve Spotify's browser-based
+   authorization, and return to NIGHT SHIFT. Search tracks, albums and artists.
+   Catalogue search needs neither an external callback server nor the Spotify
+   Android app. App Remote playback controls have separate requirements below.
 5. Access and refresh tokens are encrypted with an Android Keystore AES-GCM key
    in private app storage. **Disconnect catalogue** deletes those credentials.
    No app-specific account, Google signup, client secret or Spotify password is
    required by NIGHT SHIFT.
+
+Changing the public Client ID immediately cancels any pending authorization or
+search, disconnects the previous catalogue session and deletes its encrypted
+tokens. Stored tokens are cryptographically bound to the exact Client ID of
+their issuing app; an existing v0.3.0 session requires **one fresh Spotify
+authorization after upgrading**. Changing a catalogue Client ID does **not**
+reconfigure App Remote: that integration still needs its own build-time Android
+SDK redirect URI and registered signing fingerprint.
 
 The browser flow uses Authorization Code + PKCE (S256), a fresh random verifier
 and state, exact redirect/state validation, a two-minute loopback deadline and
@@ -126,8 +137,9 @@ unaffected. No production identifiers were supplied for this implementation.
 
 JVM tests cover PKCE state/redirects, an actual loopback listener, mocked
 Spotify Web API search/token exchange, HTTP errors, configuration and link
-validation. Android
-emulator tests cover catalogue-result rendering and exact Spotify URI selection,
+validation. Android emulator tests additionally cover runtime Client ID
+entry, persistence, removal, and encrypted-token isolation between Client IDs,
+as well as catalogue-result rendering and exact Spotify URI selection,
 account-free launch, the optional connection screen, its
 unavailable-service state, returning to the local library, and the local player's
 real audio/download journeys. Those tests do **not** prove an authenticated

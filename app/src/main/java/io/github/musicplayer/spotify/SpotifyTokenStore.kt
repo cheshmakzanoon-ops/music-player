@@ -20,8 +20,10 @@ internal class SpotifyTokenStore(context: Context) {
     private val decoder = Base64.getDecoder()
 
     @Synchronized
-    fun save(tokens: SpotifyCatalogToken): Boolean = runCatching {
+    fun save(tokens: SpotifyCatalogToken, clientId: String): Boolean = runCatching {
+        require(SpotifyPkce.validClientId(clientId))
         val json = JsonObject().apply {
+            addProperty("client_id", clientId)
             addProperty("access", tokens.accessToken)
             addProperty("refresh", tokens.refreshToken)
             addProperty("expires", tokens.expiresAtMs)
@@ -33,13 +35,18 @@ internal class SpotifyTokenStore(context: Context) {
     }.getOrDefault(false)
 
     @Synchronized
-    fun load(): SpotifyCatalogToken? = runCatching {
+    fun load(clientId: String): SpotifyCatalogToken? = runCatching {
         val stored = prefs.getString("token", null) ?: return null
         val bytes = decoder.decode(stored)
         require(bytes.size > 12 + 16)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
         val json = JsonParser.parseString(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8)).asJsonObject
+        // Tokens are issued for one OAuth app. Never revive a session from an old Client ID.
+        if (json.get("client_id")?.asString != clientId) {
+            clear()
+            return null
+        }
         val access = json.get("access").asString
         val refresh = json.get("refresh")?.takeUnless { it.isJsonNull }?.asString
         val expires = json.get("expires").asLong

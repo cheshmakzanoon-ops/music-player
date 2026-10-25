@@ -320,7 +320,8 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
                 }
                 when {
                     !spotify.configured -> {
-                        Text("Spotify catalogue search needs a registered developer client ID. Local listening remains available.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_unconfigured"))
+                        Text("Enter your public Spotify developer Client ID to activate catalogue search on this device. Guest listening always works.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_unconfigured"))
+                        SpotifyClientIdEditor(spotify, actions.onSetSpotifyCatalogClientId, actions.onResetSpotifyCatalogClientId)
                         TextButton(onClick = { actions.onOpenSpotify(query.ifBlank { "" }) }, modifier = Modifier.testTag("spotify_catalog_open_external")) {
                             Text(if (query.isBlank()) "Spotify connection" else "Search in Spotify")
                             Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.padding(start = 8.dp).size(16.dp))
@@ -343,6 +344,9 @@ private fun SearchScreen(state: PlayerUiState, actions: PlayerActions, query: St
                     }
                     spotify.error == null && spotify.results.isEmpty() -> Text("No Spotify results for this search.", color = Muted, style = MaterialTheme.typography.bodySmall)
                     else -> Text("${spotify.results.size} catalogue results · track / album / artist", color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
+                if (spotify.configured) {
+                    SpotifyClientIdEditor(spotify, actions.onSetSpotifyCatalogClientId, actions.onResetSpotifyCatalogClientId)
                 }
                 spotify.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_error")) }
             }

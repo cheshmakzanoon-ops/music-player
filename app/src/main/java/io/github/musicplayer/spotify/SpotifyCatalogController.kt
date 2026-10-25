@@ -17,6 +17,8 @@ import kotlinx.coroutines.withContext
 
 data class SpotifyCatalogState(
     val configured: Boolean = false,
+    val clientId: String = "",
+    val clientIdOverridden: Boolean = false,
     val authorized: Boolean = false,
     val authorizing: Boolean = false,
     val loading: Boolean = false,
@@ -28,13 +30,17 @@ data class SpotifyCatalogState(
 /** Optional user-authorized catalogue access. Local playback and the App Remote stay separate. */
 class SpotifyCatalogController(
     context: Context,
-    private val clientId: String,
+    buildClientId: String,
     private val api: SpotifyCatalogApi = SpotifyCatalogApi(),
 ) : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val store = SpotifyTokenStore(context.applicationContext)
-    private val configured = SpotifyPkce.validClientId(clientId)
-    private val _state = MutableStateFlow(SpotifyCatalogState(configured = configured))
+    private val settings = context.applicationContext.getSharedPreferences("spotify-catalog-settings", Context.MODE_PRIVATE)
+    private val defaultClientId = buildClientId.trim().takeIf(SpotifyPkce::validClientId).orEmpty()
+    private var overrideClientId = settings.getString("client-id-override", null)?.takeIf(SpotifyPkce::validClientId)
+    private var activeClientId = overrideClientId ?: defaultClientId
+    private val configured get() = SpotifyPkce.validClientId(activeClientId)
+    private val _state = MutableStateFlow(initialState())
     val state: StateFlow<SpotifyCatalogState> = _state.asStateFlow()
     private var credential: SpotifyCatalogToken? = null
     private var authJob: Job? = null
@@ -43,10 +49,16 @@ class SpotifyCatalogController(
     private var generation = 0
     private var closed = false
 
+    private fun initialState() = SpotifyCatalogState(
+        configured = configured,
+        clientId = activeClientId,
+        clientIdOverridden = overrideClientId != null,
+    )
+
     init {
         if (configured) scope.launch {
             val beforeLoad = generation
-            val restored = withContext(Dispatchers.IO) { store.load() }
+            val restored = withContext(Dispatchers.IO) { store.load(activeClientId) }
             if (!closed && generation == beforeLoad && restored != null) {
                 credential = restored
                 _state.update { it.copy(authorized = true) }
@@ -54,11 +66,55 @@ class SpotifyCatalogController(
         }
     }
 
+    /** Public OAuth application ID can be supplied after installation without rebuilding the APK. */
+    fun setClientId(input: String): Boolean {
+        if (closed) return false
+        val value = input.trim()
+        if (!SpotifyPkce.validClientId(value)) {
+            _state.update { it.copy(error = "Enter the 32-character public Spotify Client ID, not a client secret.") }
+            return false
+        }
+        if (!settings.edit().putString("client-id-override", value).commit()) {
+            _state.update { it.copy(error = "Could not save the Spotify Client ID on this device.") }
+            return false
+        }
+        overrideClientId = value
+        switchClientId(value)
+        return true
+    }
+
+    /** Revert to the optional CI/build configuration, or guest mode if none was embedded. */
+    fun resetClientId(): Boolean {
+        if (closed) return false
+        if (!settings.edit().remove("client-id-override").commit()) {
+            _state.update { it.copy(error = "Could not reset the Spotify Client ID.") }
+            return false
+        }
+        overrideClientId = null
+        switchClientId(defaultClientId)
+        return true
+    }
+
+    private fun switchClientId(value: String) {
+        if (value != activeClientId) {
+            generation++
+            authJob?.cancel()
+            searchJob?.cancel()
+            listener?.close()
+            listener = null
+            clearCredentials()
+            activeClientId = value
+            _state.value = initialState()
+        } else {
+            _state.update { it.copy(clientIdOverridden = overrideClientId != null, error = null) }
+        }
+    }
+
     /** Browser-based PKCE. Redirect goes to an ephemeral 127.0.0.1 listener, not a website. */
     fun authorize(openBrowser: (String) -> Unit) {
         if (closed || authJob?.isActive == true) return
         if (!configured) {
-            _state.update { it.copy(error = "Set SPOTIFY_CLIENT_ID in the Android build to enable Spotify catalogue search.") }
+            _state.update { it.copy(error = "Enter a public Spotify Client ID to enable catalogue search.") }
             return
         }
         authJob = scope.launch {
@@ -69,12 +125,12 @@ class SpotifyCatalogController(
                 val bound = withContext(Dispatchers.IO) { SpotifyLoopbackRedirect() }
                 listener = bound
                 val redirectUri = bound.redirectUri
-                openBrowser(SpotifyPkce.authorizationUrl(clientId, redirectUri, session))
+                openBrowser(SpotifyPkce.authorizationUrl(activeClientId, redirectUri, session))
                 val code = withContext(Dispatchers.IO) { bound.awaitCode(session.state) }
-                val tokens = api.exchangeCode(clientId, code, redirectUri, session.verifier)
+                val tokens = api.exchangeCode(activeClientId, code, redirectUri, session.verifier)
                 if (epoch == generation && !closed) {
                     credential = tokens
-                    withContext(Dispatchers.IO) { store.save(tokens) }
+                    withContext(Dispatchers.IO) { store.save(tokens, activeClientId) }
                     _state.update { it.copy(authorized = true, error = null) }
                     val previousQuery = _state.value.query
                     if (previousQuery.isNotBlank()) search(previousQuery)
@@ -140,9 +196,9 @@ class SpotifyCatalogController(
         val existing = credential ?: throw SpotifyAuthorizationException("Connect Spotify to search its catalogue.")
         val refresh = existing.refreshToken ?: throw SpotifyAuthorizationException("Spotify session expired. Connect again.")
         if (!force && existing.expiresAtMs > System.currentTimeMillis() + 60_000) return existing.accessToken
-        val updated = api.refresh(clientId, refresh).let { if (it.refreshToken == null) it.copy(refreshToken = refresh) else it }
+        val updated = api.refresh(activeClientId, refresh).let { if (it.refreshToken == null) it.copy(refreshToken = refresh) else it }
         credential = updated
-        withContext(Dispatchers.IO) { store.save(updated) }
+        withContext(Dispatchers.IO) { store.save(updated, activeClientId) }
         return updated.accessToken
     }
 
@@ -154,7 +210,7 @@ class SpotifyCatalogController(
         listener = null
         searchJob?.cancel()
         clearCredentials()
-        _state.value = SpotifyCatalogState(configured = configured)
+        _state.value = initialState()
     }
 
     private fun clearCredentials() {

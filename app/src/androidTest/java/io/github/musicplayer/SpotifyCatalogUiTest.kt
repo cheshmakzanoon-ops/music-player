@@ -5,6 +5,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.hasTestTag
 import io.github.musicplayer.spotify.SpotifyCatalogItem
 import io.github.musicplayer.spotify.SpotifyCatalogKind
@@ -22,6 +28,35 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 @RunWith(AndroidJUnit4::class)
 class SpotifyCatalogUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun clientIdCanBeConfiguredInSearchWithoutRebuildingOrSigningUp() {
+        val expectedId = "0123456789abcdef0123456789abcdef"
+        var savedId: String? = null
+        var catalog by mutableStateOf(SpotifyCatalogState())
+        compose.setContent {
+            MusicPlayerApp(
+                state = PlayerUiState(spotifyCatalog = catalog),
+                actions = PlayerActions(onSetSpotifyCatalogClientId = { input ->
+                    savedId = input
+                    catalog = SpotifyCatalogState(configured = true, clientId = input, clientIdOverridden = true)
+                }),
+            )
+        }
+        compose.onNodeWithTag("nav_search").performClick()
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_client_id_field"))
+        compose.onNodeWithTag("spotify_client_id_save").assertIsNotEnabled()
+        compose.onNodeWithTag("spotify_client_id_field").performTextInput("invalid")
+        compose.onNodeWithTag("spotify_client_id_save").assertIsNotEnabled()
+        compose.onNodeWithTag("spotify_client_id_field").performTextInput(expectedId)
+        // The invalid prefix cannot be accepted as an OAuth application identifier.
+        compose.onNodeWithTag("spotify_client_id_save").assertIsNotEnabled()
+        compose.onNodeWithTag("spotify_client_id_field").performTextReplacement(expectedId)
+        compose.onNodeWithTag("spotify_client_id_save").assertIsEnabled().performClick()
+        assertEquals(expectedId, savedId)
+        compose.onNodeWithTag("search_screen").performScrollToNode(hasTestTag("spotify_catalog_connect"))
+        compose.onNodeWithTag("spotify_catalog_connect").assertExists().assertIsEnabled()
+        compose.onNodeWithTag("spotify_client_id_edit").assertExists()
+    }
 
     @Test fun spotifyTrackAlbumArtistAppearInsideSearchAndOpenTheirExactUris() {
         val ids = listOf("1234567890123456789012", "2234567890123456789012", "3234567890123456789012")

@@ -100,6 +100,8 @@ class MainActivity : ComponentActivity() {
                     },
                     onAuthorizeSpotifyCatalog = { authorizeSpotifyCatalog(model) },
                     onDisconnectSpotifyCatalog = model.spotifyCatalog::disconnect,
+                    onSetSpotifyCatalogClientId = { model.spotifyCatalog.setClientId(it) },
+                    onResetSpotifyCatalogClientId = { model.spotifyCatalog.resetClientId() },
                     onSearchSpotifyCatalog = model.spotifyCatalog::search,
                     onSelectSpotifyResult = { item ->
                         if (spotify.connected) {
@@ -125,6 +127,8 @@ class MainActivity : ComponentActivity() {
                     onDisconnect = model.spotify::disconnect,
                     onAuthorizeCatalog = { authorizeSpotifyCatalog(model) },
                     onDisconnectCatalog = model.spotifyCatalog::disconnect,
+                    onSetCatalogClientId = { model.spotifyCatalog.setClientId(it) },
+                    onResetCatalogClientId = { model.spotifyCatalog.resetClientId() },
                     onOpenSpotify = { openSpotify("", model) },
                     onPlayContent = { input ->
                         model.player.pause()

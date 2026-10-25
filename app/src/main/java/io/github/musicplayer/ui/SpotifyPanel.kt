@@ -42,6 +42,8 @@ fun SpotifyPanel(
     onDisconnect: () -> Unit,
     onAuthorizeCatalog: () -> Unit,
     onDisconnectCatalog: () -> Unit,
+    onSetCatalogClientId: (String) -> Unit,
+    onResetCatalogClientId: () -> Unit,
     onOpenSpotify: () -> Unit,
     onPlayContent: (String) -> Unit,
     onTogglePlay: () -> Unit,
@@ -149,7 +151,7 @@ fun SpotifyPanel(
                             Text("Explore Spotify tracks, albums and artists inside Search.", color = Milk, style = MaterialTheme.typography.bodyMedium)
                             Text("Independent of player controls. Spotify authorization is optional, and your local collection never requires it.", color = Muted, style = MaterialTheme.typography.bodySmall)
                             when {
-                                !catalog.configured -> Text("Add a public Spotify client ID to this build to enable catalogue search.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_panel_unconfigured"))
+                                !catalog.configured -> Text("Enter your Spotify developer Client ID below. You won't need another APK.", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("spotify_catalog_panel_unconfigured"))
                                 !catalog.authorized -> Button(
                                     onClick = onAuthorizeCatalog, enabled = !catalog.authorizing, shape = CyberSmall,
                                     modifier = Modifier.fillMaxWidth().testTag("spotify_catalog_panel_connect"),
@@ -159,6 +161,7 @@ fun SpotifyPanel(
                                     OutlinedButton(onClick = onDisconnectCatalog, shape = CyberSmall, modifier = Modifier.fillMaxWidth().testTag("spotify_catalog_disconnect")) { Text("Disconnect catalogue") }
                                 }
                             }
+                            SpotifyClientIdEditor(catalog, onSetCatalogClientId, onResetCatalogClientId)
                             catalog.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         }
                         if (!state.configReady) {

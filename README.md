@@ -13,6 +13,14 @@ PKCE authorization. Its separate App Remote integration controls playback
 through the official Spotify app. Both require a registered Spotify developer
 application; the local library needs neither. [Configuration](docs/SPOTIFY_CONNECTION.md).
 
+**New in v0.4.0:** the APK can accept a public Spotify developer Client ID
+right inside **Search** or **Settings → Spotify connection**. Enter the ID,
+authorize through Spotify and search its catalogue, without rebuilding the app
+or creating a NIGHT SHIFT account. The matching loopback callback still needs
+registration in the Spotify developer dashboard. Changing the ID securely
+disconnects the previous catalogue session. The App Remote SDK continues to
+need separate build-time configuration.
+
 ## Catalogue-enabled build — 2026-10-25
 
 **Version 0.3.0** passed the complete [Spotify catalogue integration workflow](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40188827097)
@@ -125,11 +133,12 @@ availability and offline entitlements.
 Spotify's [supported Android SDK](https://developer.spotify.com/documentation/android)
 requires authorization and controls the Spotify app. Removing a client-side signup
 screen cannot remove server-side authentication, regional content rules, or download
-restrictions. Set public `SPOTIFY_CLIENT_ID` and register the browser callback
+restrictions. Enter a public Client ID in NIGHT SHIFT (or set the optional
+`SPOTIFY_CLIENT_ID` build default) and register the browser callback
 `http://127.0.0.1/callback` to enable the catalogue. Separately,
 `SPOTIFY_REDIRECT_URI` and a matching APK signing fingerprint enable App Remote.
-No identifiers were supplied, so the default build shows that Spotify is not
-configured. Authenticated live catalogue search and playback have not yet been
+No identifiers were supplied, so the default build asks you to enter a public
+Client ID. Authenticated live catalogue search and playback have not yet been
 verified. Spotify's development-mode Web API is currently limited to five
 allowlisted users and requires the developer's Premium account. See the
 [setup instructions](docs/SPOTIFY_CONNECTION.md).
