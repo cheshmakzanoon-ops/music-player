@@ -80,7 +80,7 @@ fun SpotifyPanel(
                                 modifier = Modifier.padding(start = 9.dp).testTag("spotify_connection_state"),
                             )
                         }
-                        if (state.hasTrack) {
+                        if (state.hasTrack && state.connected) {
                             Box(Modifier.widthIn(max = 340.dp).fillMaxWidth().aspectRatio(1f).align(Alignment.CenterHorizontally).background(Panel), contentAlignment = Alignment.Center) {
                                 state.artwork?.let {
                                     Image(it.asImageBitmap(), "Cover art for ${state.title}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
@@ -125,7 +125,7 @@ fun SpotifyPanel(
                                 }
                             }
                         } else {
-                            Box(Modifier.fillMaxWidth().height(190.dp).clip(CyberPanel).border(1.dp, Hairline, CyberPanel)) {
+                            Box(Modifier.fillMaxWidth().heightIn(min = 190.dp).clip(CyberPanel).border(1.dp, Hairline, CyberPanel)) {
                                 CyberCity(Modifier.matchParentSize())
                                 Column(Modifier.align(Alignment.BottomStart).padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text("YOUR SOUND.\nSAME SERVICE.", color = Milk, fontSize = 26.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black)
