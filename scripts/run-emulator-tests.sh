@@ -50,7 +50,7 @@ PY
 }
 trap collect_evidence EXIT
 
-adb wait-for-device
+timeout --kill-after=5s 30s adb wait-for-device
 {
   git rev-parse HEAD
   adb shell getprop ro.build.version.sdk
