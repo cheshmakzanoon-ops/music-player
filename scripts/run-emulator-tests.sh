@@ -10,6 +10,15 @@ collect_evidence() {
     timeout --kill-after=5s 10s adb exec-out screencap -p > ci-artifacts/failure-screen.png 2>/dev/null || true
   fi
   timeout --kill-after=5s 5s adb shell settings put system font_scale 1.0 >/dev/null 2>&1 || true
+  # The runner's adb emu kill can leave QEMU alive with its output pipe open.
+  # Device evidence is complete: stop only the exact process recorded below.
+  # The pinned action catches its subsequent 'device not found' teardown error.
+  if [[ "${GITHUB_ACTIONS:-}" == true && -n "${MUSIC_PLAYER_CI_AVD:-}" ]]; then
+    if ! timeout --kill-after=5s 15s python3 scripts/ci-emulator-process.py stop 2>&1 | tee ci-artifacts/emulator-cleanup.txt; then
+      echo 'CI emulator process cleanup failed.' >&2
+      status=1
+    fi
+  fi
   python3 - "$status" <<'PY'
 from pathlib import Path
 import json
@@ -50,6 +59,9 @@ PY
 }
 trap collect_evidence EXIT
 
+if [[ "${GITHUB_ACTIONS:-}" == true && -n "${MUSIC_PLAYER_CI_AVD:-}" ]]; then
+  python3 scripts/ci-emulator-process.py record
+fi
 timeout --kill-after=5s 30s adb wait-for-device
 {
   git rev-parse HEAD

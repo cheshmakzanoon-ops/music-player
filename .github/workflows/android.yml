@@ -10,6 +10,7 @@ on:
       - 'gradle.properties'
       - 'gradlew*'
       - 'scripts/run-emulator-tests.sh'
+      - 'scripts/ci-emulator-process.py'
       - 'scripts/frida-*'
       - '.github/workflows/android.yml'
   workflow_dispatch:
@@ -96,11 +97,15 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Run real device tests and capture screenshots
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        env:
+          MUSIC_PLAYER_CI_AVD: music-player-api-${{ matrix.api }}-${{ github.run_id }}
         with:
           api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_2
+          avd-name: music-player-api-${{ matrix.api }}-${{ github.run_id }}
+          emulator-port: 5554
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash scripts/run-emulator-tests.sh ${{ matrix.api }}
