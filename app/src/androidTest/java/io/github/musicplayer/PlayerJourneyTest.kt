@@ -302,6 +302,12 @@ class PlayerJourneyTest {
         val wasDrawingEnabled = HardwareRendererCompat.isDrawingEnabled()
         try {
             HardwareRendererCompat.setDrawingEnabled(true)
+            // A recreated Activity may still have its first native buffer pending while
+            // Compose already exposes a Dialog's semantics. Present the parent window
+            // first so WindowManager can also reveal its attached Dialog surface.
+            lateinit var activityRoot: View
+            compose.activityRule.scenario.onActivity { activityRoot = it.window.decorView }
+            awaitRenderedWindow(activityRoot)
             awaitRenderedWindow(root)
             captureScreenshot(name)
         } finally {
