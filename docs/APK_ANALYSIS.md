@@ -118,7 +118,7 @@ developer client ID and Spotify user authorization are still required for the
 optional Spotify connection. No server implementation or production credentials
 can be reconstructed from this manifest evidence.
 
-Consequently, the requested combination of **the same Spotify backend + no account + every country + unlimited catalogue downloads** is not delivered by this analysis and is not an available property of a new UI. The existing service's authorization, supported devices, availability, content rights and offline behavior still apply. No method for bypassing those restrictions was investigated or added.
+Consequently, this frontend rebuild does not provide **the same Spotify backend with no account and unrestricted regional availability**. The repository does not include the server source or deployment access needed to change those server-side decisions. The existing service's authorization, supported devices, availability, content rights and offline behavior still apply.
 
 An original player can start without its own signup and use local audio or network sources that explicitly permit playback and downloads. A Spotify-facing option can use its supported authorized integration or open content in Spotify. Those are distinct capabilities and should be labeled distinctly in the product and tests.
 

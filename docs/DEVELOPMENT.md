@@ -1,5 +1,48 @@
 # Development record
 
+## Verified delivery — 2026-10-25
+
+Source revision: [`b7b2d3f53eb85f0106d79ae0ad79427144634eb8`](https://github.com/cheshmakzanoon-ops/music-player/commit/b7b2d3f53eb85f0106d79ae0ad79427144634eb8).
+[GitHub Actions run 40184075722](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722)
+completed successfully for the build and both emulator jobs.
+
+| Check | Verified result |
+| --- | --- |
+| Debug application and instrumentation APKs | Built successfully; application version 0.2.0, package `io.github.musicplayer`. |
+| JVM tests | 8 passed; zero failures, errors or skips. |
+| Android lint | Zero errors, 20 warnings: 11 dependency suggestions, 6 UseKtx suggestions, and one each for OldTargetApi, ExportedService and DataExtractionRules. |
+| Android 8 / API 26 emulator | 17 of 17 instrumentation tests passed in 43.593 seconds. |
+| Android 15 / API 35 emulator | 18 of 18 instrumentation tests passed in 86.408 seconds. |
+| Frida observation on API 35 | Exit code zero; both observer-ready and actual MainActivity-resumed markers recorded. |
+| Workflow integrity | Instrumentation transport, transcript and assertion-parser exit codes were zero; each named emulator was stopped after evidence collection. |
+| Delivered APK | 22,373,853 bytes; APK v2 signature verified; 16 KiB ZIP alignment check passed. |
+
+The additional API 35 case is the document-provider import fixture, which requires
+API 29+. Both device/revision records identify the source revision above. The
+Frida check observes the rebuilt application's lifecycle; it does not test an
+authenticated Spotify session.
+
+Download the [application/test APK artifact](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595024417)
+and install `debug/app-debug.apk`. The debug APK's SHA-256 is:
+
+```text
+b40f1d2e7d596e593dbde5aff85c20435a899028d9b668bcffd402de6ae9e334
+```
+
+Other evidence: [build reports](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595775280),
+[API 26 logs/screenshots](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12594784964),
+[API 35 logs/screenshots](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40184075722/artifacts/12595950587).
+The [curated screenshots](screenshots/README.md) are copied unchanged from those
+artifacts. One raw API 35 Settings capture retained a stale home frame and is
+excluded; the verified API 26 large-text Settings capture is used instead.
+
+The passing run includes the actual HTTPS Ogg range/seek regression, completed
+service/session teardown between UI tests, and synchronization with the resumed
+Activity before exercising its controls. Frida uses the exact emulator's ADB
+transport to avoid the pinned release's documented
+[remote-host WebSocket issue](https://github.com/frida/frida/issues/3806).
+No app playback assertion was disabled to obtain these results.
+
 ## 2026-10-25 — investigation and original player implementation
 
 The supplied reference is `com.spotify.music`, version `9.1.78.2215` (145505425).
@@ -54,9 +97,10 @@ verification limits are documented in [SPOTIFY_CONNECTION.md](SPOTIFY_CONNECTION
   behind the tested UI. The status-bar contrast and screenshot synchronization were
   corrected, along with adaptive player sizing and consistent audio-URL validation.
 
-The current commit's [Actions run](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml)
-is the authority for its emulator result. A successful earlier run does not prove
-the latest code passed, and local builds do not substitute for emulator tests.
+The verified source revision and run above are the authority for this delivery.
+Documentation and screenshot-only commits do not trigger the workflow. For future
+application changes, consult their [Actions run](https://github.com/cheshmakzanoon-ops/music-player/actions/workflows/android.yml);
+a successful earlier run does not establish that changed application code passed.
 
 ### Verification boundaries
 
