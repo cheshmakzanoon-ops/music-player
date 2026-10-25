@@ -12,6 +12,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import io.github.musicplayer.data.TrackJson
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +31,7 @@ class PlayerService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        activeInstances.incrementAndGet()
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(this).setDataSourceFactory(OfflinePlaybackDataSourceFactory(this)),
@@ -80,12 +82,16 @@ class PlayerService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        saveSession()
-        scope.cancel()
-        session?.release()
-        session = null
-        player.release()
-        super.onDestroy()
+        try {
+            saveSession()
+            scope.cancel()
+            session?.release()
+            session = null
+            player.release()
+            super.onDestroy()
+        } finally {
+            activeInstances.decrementAndGet()
+        }
     }
 
     private fun saveSession() {
@@ -118,5 +124,12 @@ class PlayerService : MediaSessionService() {
                 player.playWhenReady = false
             }
         }
+    }
+
+    internal companion object {
+        private val activeInstances = AtomicInteger(0)
+
+        /** Tests can await completed destruction before resetting the persisted session. */
+        val activeInstanceCount: Int get() = activeInstances.get()
     }
 }
