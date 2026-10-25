@@ -29,16 +29,20 @@ import io.github.musicplayer.playback.toMediaItem
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import okio.Buffer
@@ -147,10 +151,42 @@ class RepositoryDownloadTest {
 
     @Test fun httpsStreamUsesRealNetworkAndDecoder() = runBlocking {
         val ogg = InstrumentationRegistry.getInstrumentation().context.assets.open("night-drive.ogg").use { it.readBytes() }
-        server.enqueue(MockResponse().setHeader("Content-Type", "audio/ogg").setBody(Buffer().write(ogg)))
+        val requests = CopyOnWriteArrayList<RecordedRequest>()
+        val rangesServed = CopyOnWriteArrayList<LongRange>()
+        // DefaultOggSeeker reads the final page to determine duration, then reopens
+        // the earlier audio position. A single queued response starves that second
+        // request. Serve each real GET/Range request as a seekable HTTPS audio host.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                requests.add(request)
+                if (request.method != "GET" || request.path != "/stream.ogg") return MockResponse().setResponseCode(404)
+                val response = MockResponse().setHeader("Content-Type", "audio/ogg").setHeader("Accept-Ranges", "bytes")
+                val range = request.getHeader("Range") ?: return response.setBody(Buffer().write(ogg))
+                val match = Regex("bytes=(\\d+)-(\\d*)").matchEntire(range)
+                val start = match?.groupValues?.get(1)?.toLongOrNull()
+                val endText = match?.groupValues?.get(2)
+                val end = if (endText.isNullOrEmpty()) ogg.lastIndex.toLong() else endText.toLongOrNull()
+                if (start == null || end == null || start !in 0L..ogg.lastIndex.toLong() || end < start) {
+                    return response.setResponseCode(416).setHeader("Content-Range", "bytes */${ogg.size}")
+                }
+                val boundedEnd = end.coerceAtMost(ogg.lastIndex.toLong())
+                rangesServed.add(start..boundedEnd)
+                return response.setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$boundedEnd/${ogg.size}")
+                    .setBody(Buffer().write(ogg, start.toInt(), (boundedEnd - start + 1).toInt()))
+            }
+        }
         val player = createPlayer(server.url("/stream.ogg").toString(), network = true)
-        assertPlaybackAdvances(player)
-        assertEquals("/stream.ogg", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+        val networkState = { "requests=${requests.map { it.getHeader("Range") ?: "full" }}, servedRanges=$rangesServed" }
+        assertPlaybackAdvances(player, diagnostics = networkState)
+        assertTrue("The Ogg decoder must reopen the HTTPS source", requests.size >= 2)
+        assertTrue("At least one real byte-range response must be decoded", rangesServed.isNotEmpty())
+        withContext(Dispatchers.Main) {
+            assertTrue("Ogg duration must come from the decoded source", player.duration >= 23_000)
+            player.seekTo(12_000)
+        }
+        assertPlaybackAdvances(player, minimumPositionMs = 12_350, diagnostics = networkState)
+        assertTrue(requests.all { it.method == "GET" && it.path == "/stream.ogg" })
     }
 
     @Test fun trackQueuedBeforeDownloadResolvesOfflineWhenOpenedLater() = runBlocking {
@@ -423,16 +459,28 @@ class RepositoryDownloadTest {
             }
     }
 
-    private suspend fun assertPlaybackAdvances(player: ExoPlayer) {
-        withTimeout(15000) {
-            while (true) {
-                val playing = withContext(Dispatchers.Main) {
-                    player.playerError?.let { throw AssertionError("Decoder failed: ${it.errorCodeName}", it) }
-                    player.isPlaying && player.currentPosition > 350L
+    private suspend fun assertPlaybackAdvances(
+        player: ExoPlayer,
+        minimumPositionMs: Long = 350L,
+        diagnostics: () -> String = { "" },
+    ) {
+        try {
+            withTimeout(15000) {
+                while (true) {
+                    val playing = withContext(Dispatchers.Main) {
+                        player.playerError?.let { throw AssertionError("Decoder failed: ${it.errorCodeName}", it) }
+                        player.isPlaying && player.currentPosition > minimumPositionMs
+                    }
+                    if (playing) return@withTimeout
+                    delay(50)
                 }
-                if (playing) return@withTimeout
-                delay(50)
             }
+        } catch (timeout: TimeoutCancellationException) {
+            val observed = withContext(Dispatchers.Main) {
+                "state=${player.playbackState}, playWhenReady=${player.playWhenReady}, suppression=${player.playbackSuppressionReason}, " +
+                    "position=${player.currentPosition}, buffered=${player.bufferedPosition}, error=${player.playerError?.errorCodeName}"
+            }
+            throw AssertionError("Playback did not advance within 15 seconds: $observed; ${diagnostics()}", timeout)
         }
     }
 
