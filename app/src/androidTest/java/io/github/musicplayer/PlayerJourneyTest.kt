@@ -20,6 +20,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.platform.graphics.HardwareRendererCompat
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
 import io.github.musicplayer.playback.PlayerService
 import java.io.File
@@ -145,7 +147,19 @@ class PlayerJourneyTest {
         compose.waitUntil(8_000) { model.player.state.value.positionMs > before + 700 && model.player.state.value.isPlaying }
         context.startActivity(context.packageManager.getLaunchIntentForPackage(context.packageName)!!
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-        compose.waitUntil(8_000) { model.player.state.value.isPlaying }
+        // Playback is already true in the background; it cannot signal that the resumed
+        // Activity has reattached its Compose hierarchy (especially on Android 8).
+        compose.waitUntil(8_000) {
+            var resumed = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                resumed = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).any { it is MainActivity }
+            }
+            resumed && model.player.state.value.isPlaying &&
+                compose.onAllNodesWithTag("app_ready")
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        compose.onNodeWithTag("app_ready").assertIsDisplayed()
         if (compose.onAllNodesWithTag("now_playing").fetchSemanticsNodes().isEmpty()) {
             compose.onNodeWithTag("expand_player").performClick()
         }
