@@ -101,7 +101,9 @@ not evidence that it passed; consult the run for the revision you download.
 - Downloads are managed by the app process, with completed files persisted. An interrupted
   transfer is cleaned up and must be retried; persistent background transfer scheduling
   and resumable downloads are not implemented.
-- A local file must remain accessible through the permission granted by its provider.
+- Imports are copied into private storage (up to 128 MiB), so saved copies do not
+  depend on the original file provider remaining online. Uninstalling the app removes
+  its private library and downloads.
 - Emulator evidence covers the tested Android configurations; it does not establish
   compatibility with every phone or native iOS support.
 
