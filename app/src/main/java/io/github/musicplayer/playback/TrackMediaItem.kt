@@ -1,15 +1,19 @@
 package io.github.musicplayer.playback
 
 import android.os.Bundle
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.UnstableApi
 import io.github.musicplayer.data.TrackJson
 import io.github.musicplayer.model.Track
 import org.json.JSONObject
 
+@OptIn(UnstableApi::class)
 internal fun Track.toMediaItem(): MediaItem = MediaItem.Builder()
     .setMediaId(id)
-    .setUri(playbackUri)
+    .setUri(streamUri)
+    .setCustomCacheKey(id)
     .setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(title)

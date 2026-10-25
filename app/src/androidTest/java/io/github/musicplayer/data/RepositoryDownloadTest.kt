@@ -16,6 +16,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -23,6 +24,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.filters.SdkSuppress
 import io.github.musicplayer.model.Track
+import io.github.musicplayer.playback.OfflinePlaybackDataSourceFactory
+import io.github.musicplayer.playback.toMediaItem
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
@@ -143,10 +146,70 @@ class RepositoryDownloadTest {
     }
 
     @Test fun httpsStreamUsesRealNetworkAndDecoder() = runBlocking {
-        server.enqueue(audioResponse(wav))
-        val player = createPlayer(server.url("/stream.wav").toString(), network = true)
+        val ogg = InstrumentationRegistry.getInstrumentation().context.assets.open("night-drive.ogg").use { it.readBytes() }
+        server.enqueue(MockResponse().setHeader("Content-Type", "audio/ogg").setBody(Buffer().write(ogg)))
+        val player = createPlayer(server.url("/stream.ogg").toString(), network = true)
         assertPlaybackAdvances(player)
-        assertEquals("/stream.wav", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+        assertEquals("/stream.ogg", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+    }
+
+    @Test fun trackQueuedBeforeDownloadResolvesOfflineWhenOpenedLater() = runBlocking {
+        val repository = repository()
+        val track = registerCatalogueFixture(repository)
+        // Build the real service's MediaItem and data source before any offline file exists.
+        val player = createQueuedPlayer(track)
+        withContext(Dispatchers.Main) {
+            assertEquals(track.streamUri, player.getMediaItemAt(0).localConfiguration!!.uri.toString())
+        }
+        server.enqueue(audioResponse(wav))
+        repository.download(track)
+        withTimeout(15000) { repository.downloads.first { it[track.id]?.progress == 1f } }
+        assertEquals("/fixture.wav", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+        server.shutdown()
+        serverStopped = true
+
+        // No queue replacement: the same original HTTPS MediaItem now opens the saved file.
+        withContext(Dispatchers.Main) { player.prepare(); player.play() }
+        assertPlaybackAdvances(player)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun removingDownloadLetsAnAlreadyQueuedTrackUseItsOriginalHttpsSource() = runBlocking {
+        val repository = repository()
+        val track = registerCatalogueFixture(repository)
+        server.enqueue(audioResponse(wav))
+        repository.download(track)
+        withTimeout(15000) { repository.downloads.first { it[track.id]?.progress == 1f } }
+        assertEquals("/fixture.wav", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+        val saved = repository.tracks.value.first { it.id == track.id }
+        val player = createQueuedPlayer(saved)
+        repository.removeDownload(saved)
+        withTimeout(10000) { repository.tracks.first { tracks -> tracks.first { it.id == track.id }.offlinePath == null } }
+
+        server.enqueue(audioResponse(wav))
+        withContext(Dispatchers.Main) { player.prepare(); player.play() }
+        assertPlaybackAdvances(player)
+        assertEquals("/fixture.wav", server.takeRequest(3, TimeUnit.SECONDS)?.path)
+    }
+
+    @Test fun startupRemovesOrphanedCompletedAndPartialFilesButKeepsRegisteredAudio() = runBlocking {
+        val repository = repository()
+        val track = registerCatalogueFixture(repository)
+        server.enqueue(audioResponse(wav))
+        repository.download(track)
+        withTimeout(15000) { repository.downloads.first { it[track.id]?.progress == 1f } }
+        repository.close()
+
+        val store = OfflineAudioStore(context)
+        val savedFile = store.fileFor(track.id)
+        val orphan = store.fileFor("unregistered-after-crash").apply { writeBytes(wav) }
+        val partial = File(store.directory, "${store.fileFor("interrupted-transfer").name}.part").apply { writeText("partial") }
+        val restored = repository()
+        assertTrue(savedFile.isFile)
+        assertTrue(restored.tracks.value.first { it.id == track.id }.isOffline)
+        assertEquals(sha256(wav), sha256(savedFile.readBytes()))
+        assertFalse(orphan.exists())
+        assertFalse(partial.exists())
     }
 
     @Test fun streamingOnlySourceCannotBeDownloaded() = runBlocking {
@@ -347,6 +410,17 @@ class RepositoryDownloadTest {
             player.prepare()
             player.play()
         }
+    }
+
+    private suspend fun createQueuedPlayer(track: Track): ExoPlayer = withContext(Dispatchers.Main) {
+        val upstream = DefaultDataSource.Factory(context, OkHttpDataSource.Factory(client))
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context)
+                .setDataSourceFactory(OfflinePlaybackDataSourceFactory(context, upstream)))
+            .build().also { player ->
+                players.add(player)
+                player.setMediaItem(track.toMediaItem())
+            }
     }
 
     private suspend fun assertPlaybackAdvances(player: ExoPlayer) {
