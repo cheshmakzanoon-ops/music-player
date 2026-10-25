@@ -221,3 +221,37 @@ The `validation-apks` artifact is a ZIP; its published GitHub digest refers to
 that ZIP, not the extracted `app-debug.apk`. No unmeasured APK checksum or
 signing-certificate fingerprint is asserted here. GitHub retains these
 workflow artifacts for a limited time.
+
+## Version 0.5.0 — paginated Spotify search
+
+The initial v0.5.0 implementation [7fd6320](https://github.com/cheshmakzanoon-ops/music-player/commit/7fd6320a8bcd3c33ac168b2e5b77b2fa55932344)
+hit a JUnit 4 initialization error caused by an expression-bodied test
+returning a value. The failure appeared in [run 40218154979](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218154979)
+and was fixed in [commit 01fa2c8](https://github.com/cheshmakzanoon-ops/music-player/commit/01fa2c8d0163f7188ce0da9ad5ab80f795658a8e),
+which explicitly returns `Unit` from that test. This failure and repair are
+recorded to make the verification history reproducible.
+
+**[Final green GitHub Actions run 40218441381](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381)**
+verified that corrected source commit on `main` on October 25, 2026.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Build, Kotlin/JVM tests, Android lint | **Passed** | [Build reports](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381/artifacts/12608396197) |
+| Android 8 / API 26 emulator | **23/23 instrumentation tests passed** | [API 26 evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381/artifacts/12608450946) |
+| Android 15 / API 35 emulator | **24/24 instrumentation tests passed** | [API 35 evidence](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381/artifacts/12609250131) |
+| Android 15 Frida process/lifecycle | **Passed**, MainActivity resumed under observation | API 35 logs and evidence |
+| Installable app v0.5.0 (version code 5) | **Built and uploaded** | [APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381/artifacts/12607564913) |
+
+Spotify's February 2026 Web API development mode caps Search requests at 10
+results per type. The new UI requests additional pages only after tapping
+**Load more Spotify results**, constructs bounded `offset` requests against
+the configured official API base, and avoids duplicate entries between pages.
+The mock-server JVM tests verify offset=10 on the second request and that a
+forged `next` URL in server JSON is **never followed**. The new emulator test
+verifies a visible pagination control and that it disables during loading.
+
+This result proves the app's pagination implementation and emulator UX, not
+real authenticated Spotify catalogue completeness. Spotify account approval,
+availability, licensing, and any offline entitlements remain server-controlled.
+Follow [Spotify setup](SPOTIFY_CONNECTION.md) to authorize a real developer
+app, then conduct a user-approved live search on a supported device.

@@ -21,7 +21,25 @@ registration in the Spotify developer dashboard. Changing the ID securely
 disconnects the previous catalogue session. The App Remote SDK continues to
 need separate build-time configuration.
 
-### Latest verified build: v0.4.0
+### Latest verified build: v0.5.0
+
+**[Android validation run 40218441381](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381)**
+is green at [source commit 01fa2c8](https://github.com/cheshmakzanoon-ops/music-player/commit/01fa2c8d0163f7188ce0da9ad5ab80f795658a8e):
+Gradle build/JVM tests/lint, **23 Android 8 emulator tests**, **24 Android 15
+emulator tests**, and the Frida Android 15 lifecycle check. This increment
+adds **Load more Spotify results** to Search, fetching explicit additional
+Web API pages (10 results per type per page) and merging duplicate-free track,
+album and artist results. Web API pagination uses Spotify's published `offset`
+parameter; no backend-provided `next` URL is contacted. The app still uses
+Spotify authorization and the official client for playback.
+
+**[Download the v0.5.0 verified Android APK bundle](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40218441381/artifacts/12607564913)**
+and extract `debug/app-debug.apk`. As with v0.4.0, this is a debug/test build,
+not a release-signed APK. Live Spotify account authorization is outside the
+current emulator verification scope.
+[Full v0.5.0 verification](docs/VERIFICATION.md#version-050--paginated-spotify-search).
+
+### Previous verified build: v0.4.0
 
 **[Android validation run 40217027319](https://github.com/cheshmakzanoon-ops/music-player/actions/runs/40217027319)**
 passed for source [c76cb6a](https://github.com/cheshmakzanoon-ops/music-player/commit/c76cb6a423bb30a129536cff20f46a44994e99cd):
